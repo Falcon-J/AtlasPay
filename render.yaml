@@ -39,8 +39,8 @@ services:
 
   - type: pserv
     name: atlaspay-db
-    runtime: docker
-    dockerImage: postgres:15-alpine
+    runtime: image
+    image: postgres:15-alpine
     plan: free
     envVars:
       - key: POSTGRES_USER
@@ -52,6 +52,6 @@ services:
 
   - type: pserv
     name: atlaspay-redis
-    runtime: docker
-    dockerImage: redis:7-alpine
+    runtime: image
+    image: redis:7-alpine
     plan: free
