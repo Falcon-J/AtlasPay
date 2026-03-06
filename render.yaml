@@ -40,7 +40,8 @@ services:
   - type: pserv
     name: atlaspay-db
     runtime: image
-    image: postgres:15-alpine
+    image:
+      url: postgres:15-alpine
     plan: free
     envVars:
       - key: POSTGRES_USER
@@ -53,5 +54,6 @@ services:
   - type: pserv
     name: atlaspay-redis
     runtime: image
-    image: redis:7-alpine
+    image:
+      url: redis:7-alpine
     plan: free
