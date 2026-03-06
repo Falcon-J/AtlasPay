@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'AtlasPay Dashboards'
+    orgId: 1
+    folder: 'AtlasPay'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

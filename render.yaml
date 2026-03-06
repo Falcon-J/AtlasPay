@@ -1,0 +1,57 @@
+services:
+  - type: web
+    name: atlaspay-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: SERVER_PORT
+        value: "8080"
+      - key: DB_HOST
+        fromService:
+          name: atlaspay-db
+          type: pserv
+          property: host
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_USER
+        value: atlaspay
+      - key: DB_PASSWORD
+        fromService:
+          name: atlaspay-db
+          type: pserv
+          envVarKey: POSTGRES_PASSWORD
+      - key: DB_NAME
+        value: atlaspay
+      - key: DB_SSLMODE
+        value: require
+      - key: REDIS_HOST
+        fromService:
+          name: atlaspay-redis
+          type: pserv
+          property: hostport
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+
+  - type: pserv
+    name: atlaspay-db
+    runtime: docker
+    dockerImage: postgres:15-alpine
+    plan: free
+    envVars:
+      - key: POSTGRES_USER
+        value: atlaspay
+      - key: POSTGRES_PASSWORD
+        generateValue: true
+      - key: POSTGRES_DB
+        value: atlaspay
+
+  - type: pserv
+    name: atlaspay-redis
+    runtime: docker
+    dockerImage: redis:7-alpine
+    plan: free
