@@ -51,6 +51,7 @@ A production-grade distributed payment platform built with Go, demonstrating mic
 | **Rate Limiting** | Token bucket algorithm | Per-IP/user limiting |
 | **Chaos Testing** | Failure injection scripts | Kafka down, DB slow, Redis failure |
 | **Load Testing** | k6 with 500 VU stress test | 10k+ RPM benchmark |
+| **Visual Dashboard** | Premium Vanilla JS & CSS | Demo-ready UI, real-time tracking |
 
 ## 🚀 Quick Start
 
@@ -86,7 +87,15 @@ docker-compose up -d
 # - Grafana: http://localhost:3000 (admin/admin123)
 # - Jaeger: http://localhost:16686
 # - Kafka UI: http://localhost:8090
+
+# 5. Live Dashboard (Demo Mode)
+# Open web/index.html in your browser
 ```
+
+## 🎥 Demo & Learning Resources
+- **[Premium Dashboard](file:///c:/Users/ojade/Downloads/newresumeproject/AtlasPay/web/index.html)**: Visualize Saga states and system health.
+- **[User Story Scenarios](file:///c:/Users/ojade/Downloads/newresumeproject/AtlasPay/docs/USER_STORIES.md)**: Real-world business cases (Happy path vs Payment failure).
+- **[1-Day Mastery Roadmap](file:///c:/Users/ojade/Downloads/newresumeproject/AtlasPay/docs/FREE_DEPLOYMENT.md)**: How to prepare for your senior interview.
 
 ## 📊 API Endpoints
 
