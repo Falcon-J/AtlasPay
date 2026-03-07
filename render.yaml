@@ -10,50 +10,42 @@ services:
       - key: SERVER_PORT
         value: "8080"
       - key: DB_HOST
-        fromService:
+        fromDatabase:
           name: atlaspay-db
-          type: pserv
           property: host
       - key: DB_PORT
-        value: "5432"
-      - key: DB_USER
-        value: atlaspay
-      - key: DB_PASSWORD
-        fromService:
+        fromDatabase:
           name: atlaspay-db
-          type: pserv
-          envVarKey: POSTGRES_PASSWORD
+          property: port
+      - key: DB_USER
+        fromDatabase:
+          name: atlaspay-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: atlaspay-db
+          property: password
       - key: DB_NAME
-        value: atlaspay
+        fromDatabase:
+          name: atlaspay-db
+          property: database
       - key: DB_SSLMODE
         value: require
       - key: REDIS_HOST
         fromService:
           name: atlaspay-redis
-          type: pserv
-          property: hostport
+          property: host
       - key: JWT_ACCESS_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
 
-  - type: pserv
-    name: atlaspay-db
-    runtime: image
-    image:
-      url: postgres:15-alpine
-    plan: free
-    envVars:
-      - key: POSTGRES_USER
-        value: atlaspay
-      - key: POSTGRES_PASSWORD
-        generateValue: true
-      - key: POSTGRES_DB
-        value: atlaspay
-
-  - type: pserv
+  - type: keyvalue
     name: atlaspay-redis
-    runtime: image
-    image:
-      url: redis:7-alpine
     plan: free
+
+databases:
+  - name: atlaspay-db
+    plan: free
+    databaseName: atlaspay
+    user: atlaspay
