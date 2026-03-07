@@ -51,6 +51,20 @@ func OrderPlacementSaga(
 ) *Saga {
 	steps := []Step{
 		{
+			Name: "saga_init",
+			Action: func(ctx context.Context, data interface{}) error {
+				// Global initialization if needed.
+				// For now, it just serves as a compensation anchor to fail the order.
+				return nil
+			},
+			Compensation: func(ctx context.Context, data interface{}) error {
+				d := data.(map[string]interface{})
+				initial := d["initial"].(OrderPlacementData)
+				logger.Warn(ctx).Str("order_id", initial.OrderID).Msg("compensating saga_init: marking order as failed")
+				return orderSvc.FailOrder(ctx, initial.OrderID)
+			},
+		},
+		{
 			Name: "reserve_inventory",
 			Action: func(ctx context.Context, data interface{}) error {
 				d := data.(map[string]interface{})
@@ -94,20 +108,7 @@ func OrderPlacementSaga(
 					initial.IdempotencyKey,
 				)
 			},
-			Compensation: func(ctx context.Context, data interface{}) error {
-				// Payment compensation would trigger refund
-				// For now, just log - the payment service handles refunds separately
-				d := data.(map[string]interface{})
-				initial := d["initial"].(OrderPlacementData)
-
-				logger.Info(ctx).
-					Str("order_id", initial.OrderID).
-					Msg("marking order as failed due to payment issues")
-
-				// We don't refund here - the release of inventory is enough
-				// Refunds are handled through a separate process
-				return nil
-			},
+			Compensation: nil, // Note: Inventory release will handle the failure state
 		},
 		{
 			Name: "commit_inventory",
@@ -135,16 +136,7 @@ func OrderPlacementSaga(
 
 				return orderSvc.ConfirmOrder(ctx, initial.OrderID)
 			},
-			Compensation: func(ctx context.Context, data interface{}) error {
-				d := data.(map[string]interface{})
-				initial := d["initial"].(OrderPlacementData)
-
-				logger.Info(ctx).
-					Str("order_id", initial.OrderID).
-					Msg("failing order")
-
-				return orderSvc.FailOrder(ctx, initial.OrderID)
-			},
+			Compensation: nil, // Let saga_init handle it if this fails (rare as it's just a DB update)
 		},
 	}
 

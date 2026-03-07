@@ -28,6 +28,7 @@ func (h *Handler) Routes() chi.Router {
 	r.Post("/", h.CreateOrder)
 	r.Get("/", h.ListOrders)
 	r.Get("/{id}", h.GetOrder)
+	r.Get("/{id}/saga", h.GetSagaState)
 	r.Patch("/{id}/cancel", h.CancelOrder)
 
 	return r
@@ -209,4 +210,26 @@ func (h *Handler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 	// Get updated order
 	order, _ = h.service.GetOrder(r.Context(), orderID)
 	response.OK(w, OrderResponse{Order: order})
+}
+
+// GetSagaState handles saga state retrieval
+func (h *Handler) GetSagaState(w http.ResponseWriter, r *http.Request) {
+	_, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		errors.WriteError(w, errors.ErrUnauthorized)
+		return
+	}
+
+	orderID := chi.URLParam(r, "id")
+	sg, err := h.service.GetSagaState(r.Context(), orderID)
+	if err != nil {
+		if appErr, ok := err.(*errors.AppError); ok {
+			errors.WriteError(w, appErr)
+			return
+		}
+		errors.WriteError(w, errors.ErrInternalServer)
+		return
+	}
+
+	response.OK(w, sg)
 }

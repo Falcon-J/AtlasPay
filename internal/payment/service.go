@@ -19,8 +19,12 @@ func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
 }
 
-// ProcessPayment processes a payment with idempotency
-func (s *Service) ProcessPayment(ctx context.Context, userID string, req *CreatePaymentRequest) (*Payment, error) {
+// ProcessPaymentV2 processes a payment with idempotency (for HTTP handlers)
+func (s *Service) ProcessPaymentV2(ctx context.Context, userID string, req *CreatePaymentRequest) (*Payment, error) {
+	return s.processPaymentInternal(ctx, userID, req)
+}
+
+func (s *Service) processPaymentInternal(ctx context.Context, userID string, req *CreatePaymentRequest) (*Payment, error) {
 	// Check for existing payment with same idempotency key (idempotency check)
 	existing, err := s.repo.GetByIdempotencyKey(ctx, req.IdempotencyKey)
 	if err != nil {
@@ -83,6 +87,24 @@ func (s *Service) ProcessPayment(ctx context.Context, userID string, req *Create
 	return payment, nil
 }
 
+// ProcessPayment satisfies the saga.PaymentService interface
+func (s *Service) ProcessPayment(ctx context.Context, orderID, userID string, amount float64, currency, method, idempotencyKey string) error {
+	req := &CreatePaymentRequest{
+		OrderID:        orderID,
+		Amount:         amount,
+		Currency:       currency,
+		PaymentMethod:  method,
+		IdempotencyKey: idempotencyKey,
+	}
+
+	// Override for demo failure sku
+	// In a real system, the SKU might be checked earlier or the payment service might be told to fail.
+	// We'll rely on the repo or simulator if we wanted, but let's keep it simple.
+	
+	_, err := s.processPaymentInternal(ctx, userID, req)
+	return err
+}
+
 // GetPayment retrieves a payment by ID
 func (s *Service) GetPayment(ctx context.Context, id string) (*Payment, error) {
 	payment, err := s.repo.GetByID(ctx, id)
@@ -131,6 +153,13 @@ func (s *Service) simulatePaymentGateway(payment *Payment) bool {
 	// Simulate processing time
 	time.Sleep(100 * time.Millisecond)
 
-	// 95% success rate for demo
+	// Special case for demo failure SKU
+	// The frontend uses SKU 'FAIL-PAYMENT-001' to trigger failure.
+	// We'll check if the idempotency key contains 'FAIL' as a signal.
+	if payment.IdempotencyKey != "" && (len(payment.IdempotencyKey) > 10 && payment.IdempotencyKey[:4] == "FAIL") {
+		return false
+	}
+	
+	// 95% success rate for general demo
 	return rand.Float32() < 0.95
 }

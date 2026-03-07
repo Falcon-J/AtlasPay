@@ -76,9 +76,9 @@ func main() {
 
 	// Initialize services
 	authService := auth.NewService(authRepo, jwtManager, cfg.JWT.RefreshExpiry)
-	orderService := order.NewService(orderRepo)
 	paymentService := payment.NewService(paymentRepo)
 	inventoryService := inventory.NewService(inventoryRepo)
+	orderService := order.NewService(orderRepo, inventoryService, paymentService)
 
 	// Initialize handlers
 	authHandler := auth.NewHandler(authService)

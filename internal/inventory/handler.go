@@ -76,7 +76,7 @@ func (h *Handler) ReserveStock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reservations, err := h.service.ReserveStock(r.Context(), &req)
+	reservations, err := h.service.ReserveStockV2(r.Context(), &req)
 	if err != nil {
 		if appErr, ok := err.(*errors.AppError); ok {
 			errors.WriteError(w, appErr)

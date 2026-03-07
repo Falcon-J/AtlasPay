@@ -59,7 +59,7 @@ func (h *Handler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payment, err := h.service.ProcessPayment(r.Context(), claims.UserID, &req)
+	payment, err := h.service.ProcessPaymentV2(r.Context(), claims.UserID, &req)
 	if err != nil {
 		if appErr, ok := err.(*errors.AppError); ok {
 			// For payment failures, still return the payment object

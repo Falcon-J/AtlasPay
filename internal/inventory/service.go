@@ -5,6 +5,7 @@ import (
 
 	"github.com/atlaspay/platform/internal/common/errors"
 	"github.com/atlaspay/platform/internal/common/logger"
+	"github.com/atlaspay/platform/internal/common/saga"
 )
 
 // Service handles inventory business logic
@@ -47,7 +48,31 @@ func (s *Service) CheckAvailability(ctx context.Context, items []ReserveItemRequ
 }
 
 // ReserveStock reserves inventory for an order
-func (s *Service) ReserveStock(ctx context.Context, req *ReserveRequest) ([]*Reservation, error) {
+func (s *Service) ReserveStock(ctx context.Context, orderID string, sagaItems []saga.OrderItem) error {
+	reqItems := make([]ReserveItemRequest, len(sagaItems))
+	for i, item := range sagaItems {
+		reqItems[i] = ReserveItemRequest{
+			SKU:      item.SKU,
+			Quantity: item.Quantity,
+		}
+	}
+
+	_, err := s.repo.ReserveStock(ctx, orderID, reqItems)
+	if err != nil {
+		logger.Error(ctx).Err(err).Str("order_id", orderID).Msg("failed to reserve stock")
+		return errors.ErrInsufficientStock.WithDetails(err.Error())
+	}
+
+	logger.Info(ctx).
+		Str("order_id", orderID).
+		Int("items_count", len(sagaItems)).
+		Msg("stock reserved successfully")
+
+	return nil
+}
+
+// ReserveStockV2 is for the API handler
+func (s *Service) ReserveStockV2(ctx context.Context, req *ReserveRequest) ([]*Reservation, error) {
 	reservations, err := s.repo.ReserveStock(ctx, req.OrderID, req.Items)
 	if err != nil {
 		logger.Error(ctx).Err(err).Str("order_id", req.OrderID).Msg("failed to reserve stock")

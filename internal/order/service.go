@@ -5,16 +5,25 @@ import (
 
 	"github.com/atlaspay/platform/internal/common/errors"
 	"github.com/atlaspay/platform/internal/common/logger"
+	"github.com/atlaspay/platform/internal/common/saga"
 )
 
 // Service handles order business logic
 type Service struct {
-	repo *Repository
+	repo         *Repository
+	inventorySvc saga.InventoryService
+	paymentSvc   saga.PaymentService
+	orchestrator *saga.Orchestrator
 }
 
 // NewService creates a new order service
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repository, inventorySvc saga.InventoryService, paymentSvc saga.PaymentService) *Service {
+	return &Service{
+		repo:         repo,
+		inventorySvc: inventorySvc,
+		paymentSvc:   paymentSvc,
+		orchestrator: saga.NewOrchestrator(),
+	}
 }
 
 // CreateOrder creates a new order
@@ -48,9 +57,56 @@ func (s *Service) CreateOrder(ctx context.Context, userID string, req *CreateOrd
 		Str("order_id", order.ID).
 		Str("user_id", userID).
 		Float64("total", order.TotalPrice).
-		Msg("order created")
+		Msg("order created, starting saga")
+
+	// Trigger Saga in background
+	go func() {
+		// Create a new context for the background saga execution
+		sagaCtx := context.Background()
+		orderSaga := saga.OrderPlacementSaga(s, s.inventorySvc, s.paymentSvc)
+		// We use a custom ID or mapping if we want to retrieve it later by OrderID.
+		// For now, let's use the OrderID as the Saga ID for easy lookup.
+		orderSaga.ID = order.ID 
+
+		sagaData := saga.OrderPlacementData{
+			OrderID:        order.ID,
+			UserID:         order.UserID,
+			TotalAmount:    order.TotalPrice,
+			Currency:       order.Currency,
+			IdempotencyKey: "SAGA-" + order.ID,
+			Items:          make([]saga.OrderItem, len(order.Items)),
+		}
+
+		for i, item := range order.Items {
+			sagaData.Items[i] = saga.OrderItem{
+				SKU:      item.SKU,
+				Quantity: item.Quantity,
+			}
+			// If we contain a failure SKU, propagate to idempotency key for payment simulator
+			if item.SKU == "FAIL-PAYMENT-001" {
+				sagaData.IdempotencyKey = "FAIL-" + order.ID
+			}
+		}
+
+		if err := s.orchestrator.Execute(sagaCtx, orderSaga, sagaData); err != nil {
+			logger.Error(sagaCtx).Err(err).Str("order_id", order.ID).Msg("saga execution failed")
+			// Fallback: Ensure order is marked as failed if saga failed and compensation didn't handle it
+			_ = s.FailOrder(sagaCtx, order.ID)
+		} else {
+			logger.Info(sagaCtx).Str("order_id", order.ID).Msg("saga execution completed")
+		}
+	}()
 
 	return order, nil
+}
+
+// GetSagaState retrieves the current status of a saga for an order
+func (s *Service) GetSagaState(ctx context.Context, orderID string) (*saga.Saga, error) {
+	sg, exists := s.orchestrator.GetSaga(orderID)
+	if !exists {
+		return nil, errors.ErrOrderNotFound
+	}
+	return sg, nil
 }
 
 // GetOrder retrieves an order by ID
