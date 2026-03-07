@@ -33,6 +33,7 @@ services:
         value: require
       - key: REDIS_HOST
         fromService:
+          type: keyvalue
           name: atlaspay-redis
           property: host
       - key: JWT_ACCESS_SECRET
@@ -43,6 +44,9 @@ services:
   - type: keyvalue
     name: atlaspay-redis
     plan: free
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: Everywhere
 
 databases:
   - name: atlaspay-db
