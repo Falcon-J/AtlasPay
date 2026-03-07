@@ -368,8 +368,20 @@
                         <p><strong>Note for Interviewers:</strong> This dashboard visualizes the state of the <strong>Saga Pattern</strong> in real-time. Connect to the live deployment to see distributed transactions in action.</p>
                     </div>
 
-                    <h3 style="margin-top: 1.5rem; font-size: 14px;">Quick Demo Action</h3>
-                    <button class="btn btn-secondary" onclick="demoOrder()">Simulate Saga Order</button>
+                    <div id="simulator-section" style="margin-top: 1.5rem; border-top: 1px solid var(--secondary); padding-top: 1.5rem;">
+                        <h3 style="font-size: 14px; margin-bottom: 1rem; color: var(--accent);">Interactive Saga Simulator</h3>
+                        <div id="auth-status" style="font-size: 12px; margin-bottom: 1rem; color: var(--text-dim);">
+                            Status: <span id="session-label">No Active Demo Session</span>
+                        </div>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <button id="btn-init" class="btn btn-secondary" onclick="initDemoSession()">1. Initialize Demo Session</button>
+                            <div id="demo-controls" style="display: none; flex-direction: column; gap: 10px;">
+                                <button class="btn" style="background: var(--success);" onclick="runSimulation('success')">Simulate Success (Atomic)</button>
+                                <button class="btn" style="background: var(--error);" onclick="runSimulation('failure')">Simulate Saga Failure (Rollback)</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -377,6 +389,7 @@
 
     <script>
         let apiUrl = "https://atlaspay-api.onrender.com";
+        let accessToken = null;
 
         async function connect() {
             const input = document.getElementById('api-url').value;
@@ -386,6 +399,7 @@
             checkHealth();
             fetchOrders();
             setInterval(checkHealth, 30000);
+            setInterval(fetchOrders, 10000); // Auto refresh every 10s
         }
 
         async function checkHealth() {
@@ -395,7 +409,6 @@
                 const duration = Date.now() - start;
                 
                 if (res.ok) {
-                    const data = await res.json();
                     document.getElementById('status-dot').style.background = 'var(--success)';
                     document.getElementById('status-dot').style.boxShadow = '0 0 10px var(--success)';
                     document.getElementById('status-text').innerText = 'CORE ONLINE';
@@ -408,18 +421,97 @@
             }
         }
 
-        async function fetchOrders() {
+        async function initDemoSession() {
+            const btn = document.getElementById('btn-init');
+            btn.innerText = "Initializing...";
+            btn.disabled = true;
+
+            const demoData = {
+                email: `demo_${Math.floor(Math.random()*10000)}@atlaspay.test`,
+                password: "Password123!",
+                first_name: "Demo",
+                last_name: "User"
+            };
+
             try {
-                // Since this uses JWT, in a real demo you'd login first. 
-                // For the portfolio dashboard, we assume public visibility or provide a guest token.
-                const res = await fetch(`${apiUrl}/api/orders?page=1&page_size=10`);
+                // 1. Register
+                let res = await fetch(`${apiUrl}/api/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(demoData)
+                });
+
+                if (!res.ok && res.status !== 409) throw new Error("Registration failed");
+
+                // 2. Login
+                res = await fetch(`${apiUrl}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: demoData.email, password: demoData.password })
+                });
+
+                if (!res.ok) throw new Error("Login failed");
+
+                const data = await res.json();
+                accessToken = data.data.access_token;
+
+                document.getElementById('session-label').innerText = "Demo Session Active ✅";
+                document.getElementById('session-label').style.color = "var(--success)";
+                document.getElementById('btn-init').style.display = "none";
+                document.getElementById('demo-controls').style.display = "flex";
+                
+                fetchOrders();
+            } catch (e) {
+                alert("Failed to initialize session: " + e.message);
+                btn.innerText = "Retry Initialize";
+                btn.disabled = false;
+            }
+        }
+
+        async function runSimulation(type) {
+            if (!accessToken) return alert("Please initialize demo session first.");
+
+            const sku = type === 'success' ? 'LAPTOP-001' : 'FAIL-PAYMENT-001';
+            
+            try {
+                const res = await fetch(`${apiUrl}/api/orders`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({
+                        items: [{ sku: sku, quantity: 1 }]
+                    })
+                });
+
+                if (res.ok) {
+                    setTimeout(fetchOrders, 1000); // Refresh quickly to show pending
+                    setTimeout(fetchOrders, 3000); // Refresh again to show final state
+                } else {
+                    const err = await res.json();
+                    alert("Simulation Request Failed: " + (err.message || "Unknown error"));
+                }
+            } catch (e) {
+                alert("Simulation Network Error: " + e.message);
+            }
+        }
+
+        async function fetchOrders() {
+            if (!apiUrl) return;
+            try {
+                // For the feed, we fetch orders. If no token, we can't see private orders.
+                // We'll use the demo token if available.
+                const headers = accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {};
+                const res = await fetch(`${apiUrl}/api/orders?page=1&page_size=10`, { headers });
+                
                 if (res.ok) {
                     const data = await res.json();
                     renderOrders(data.data.orders);
                     document.getElementById('stat-orders').innerText = data.data.total_count || 0;
                 }
             } catch (e) {
-                console.error("Order fetch failed. Make sure CORS is enabled.");
+                console.error("Order fetch failed.");
             }
         }
 
@@ -428,13 +520,15 @@
             body.innerHTML = '';
             
             if (!orders || orders.length === 0) {
-                body.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-dim); padding: 2rem;">No orders detected. Click "Simulate" to begin.</td></tr>';
+                body.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-dim); padding: 2rem;">No orders detected. Initialize session and run a simulation.</td></tr>';
                 return;
             }
 
             orders.forEach(order => {
                 const tr = document.createElement('tr');
-                const statusClass = order.status === 'confirmed' ? 'badge-success' : (order.status === 'failed' ? 'badge-failed' : 'badge-pending');
+                const status = order.status.toLowerCase();
+                const statusClass = status === 'confirmed' || status === 'paid' ? 'badge-success' : 
+                                   (status === 'failed' || status === 'cancelled' ? 'badge-failed' : 'badge-pending');
                 
                 tr.innerHTML = `
                     <td style="font-family: monospace;">#${order.id.slice(-8)}</td>
@@ -446,14 +540,9 @@
             });
         }
 
-        function demoOrder() {
-            alert("To simulate a production order, use the 'curl' commands from USER_STORIES.md or k6 scripts. This dashboard will automatically update when the database changes.");
-        }
-
         // Auto-connect on load
         window.onload = () => {
-             // Delay to show animation
-             setTimeout(connect, 500);
+             connect();
         };
     </script>
 </body>
