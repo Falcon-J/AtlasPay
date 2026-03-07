@@ -39,6 +39,18 @@ func main() {
 	}
 	defer db.Close()
 
+	// Run migrations (auto-initialize schema)
+	migrationSQL, err := os.ReadFile("./migrations/001_init.sql")
+	if err != nil {
+		logger.Warn(ctx).Err(err).Msg("failed to read migration file, skipping auto-migration")
+	} else {
+		if err := db.ExecScript(ctx, string(migrationSQL)); err != nil {
+			logger.Error(ctx).Err(err).Msg("failed to run migrations")
+		} else {
+			logger.Info(ctx).Msg("auto-migration completed successfully")
+		}
+	}
+
 	// Initialize Redis cache
 	redisCache, err := cache.NewRedisCache(cfg.Redis.RedisAddr(), cfg.Redis.Password, cfg.Redis.DB)
 	if err != nil {

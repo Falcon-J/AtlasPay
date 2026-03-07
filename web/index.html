@@ -441,7 +441,10 @@
                     body: JSON.stringify(demoData)
                 });
 
-                if (!res.ok && res.status !== 409) throw new Error("Registration failed");
+                if (!res.ok && res.status !== 409) {
+                    const errorMsg = await res.json().then(d => d.message).catch(() => "Registration endpoint returned error");
+                    throw new Error(errorMsg);
+                }
 
                 // 2. Login
                 res = await fetch(`${apiUrl}/api/auth/login`, {
@@ -450,7 +453,10 @@
                     body: JSON.stringify({ email: demoData.email, password: demoData.password })
                 });
 
-                if (!res.ok) throw new Error("Login failed");
+                if (!res.ok) {
+                    const errorMsg = await res.json().then(d => d.message).catch(() => "Login endpoint failed");
+                    throw new Error(errorMsg);
+                }
 
                 const data = await res.json();
                 accessToken = data.data.access_token;

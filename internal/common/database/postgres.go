@@ -49,6 +49,12 @@ func (db *PostgresDB) Health(ctx context.Context) error {
 	return db.Pool.Ping(ctx)
 }
 
+// ExecScript runs a raw SQL script (useful for migrations)
+func (db *PostgresDB) ExecScript(ctx context.Context, script string) error {
+	_, err := db.Pool.Exec(ctx, script)
+	return err
+}
+
 // Stats returns pool statistics (useful for metrics)
 func (db *PostgresDB) Stats() *pgxpool.Stat {
 	return db.Pool.Stat()
