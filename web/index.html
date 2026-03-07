@@ -498,6 +498,33 @@
             </div>
 
             <div class="control-section">
+                <!-- NEW: Architectural Node Map -->
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <h2 class="card-title" style="margin-bottom: 1.5rem; font-size: 14px; color: var(--text-dim);">PROTOCOL MESH VISUALIZER</h2>
+                    <div id="mesh-visualizer" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; position: relative;">
+                        <!-- Connection Lines -->
+                        <div style="position: absolute; top: 50%; left: 15%; right: 15%; height: 2px; background: rgba(255,255,255,0.05); z-index: 1;">
+                            <div id="flow-progress" style="height: 100%; width: 0%; background: var(--primary); box-shadow: 0 0 10px var(--primary); transition: width 0.5s ease;"></div>
+                        </div>
+                        
+                        <div class="node" id="node-order" style="z-index: 2; text-align: center;">
+                            <div class="node-icon" style="width: 40px; height: 40px; border-radius: 10px; background: var(--secondary); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; transition: all 0.3s;">O</div>
+                            <span style="font-size: 9px; font-weight: 800; color: var(--text-dim);">ORDER</span>
+                        </div>
+                        <div class="node" id="node-inventory" style="z-index: 2; text-align: center;">
+                            <div class="node-icon" style="width: 40px; height: 40px; border-radius: 10px; background: var(--secondary); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; transition: all 0.3s;">I</div>
+                            <span style="font-size: 9px; font-weight: 800; color: var(--text-dim);">STOCK</span>
+                        </div>
+                        <div class="node" id="node-payment" style="z-index: 2; text-align: center;">
+                            <div class="node-icon" style="width: 40px; height: 40px; border-radius: 10px; background: var(--secondary); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; transition: all 0.3s;">P</div>
+                            <span style="font-size: 9px; font-weight: 800; color: var(--text-dim);">PAY</span>
+                        </div>
+                    </div>
+                    <div id="protocol-insight" style="margin-top: 1rem; font-size: 11px; color: var(--primary); font-weight: 600; text-align: center; font-family: 'JetBrains Mono'; min-height: 1.2em;">
+                        Awaiting orchestration signal...
+                    </div>
+                </div>
+
                 <div class="card" id="saga-trace-card">
                     <h2 class="card-title" style="margin-bottom: 2rem; display: flex; align-items: center; gap: 8px;">
                         <span style="width: 8px; height: 8px; background: #bc8cff; border-radius: 50%; box-shadow: 0 0 10px #bc8cff;"></span>
@@ -542,6 +569,30 @@
         let accessToken = null;
         let healthTimer, orderTimer;
         let lastOrderCount = 0;
+
+        function updateNodeStyle(nodeId, status) {
+            const node = document.querySelector(`#node-${nodeId} .node-icon`);
+            if (status === 'active') {
+                node.style.background = 'var(--primary)';
+                node.style.borderColor = 'var(--primary)';
+                node.style.boxShadow = '0 0 15px var(--primary)';
+                node.style.color = 'white';
+            } else if (status === 'error') {
+                node.style.background = 'var(--error)';
+                node.style.borderColor = 'var(--error)';
+                node.style.boxShadow = '0 0 15px var(--error)';
+                node.style.color = 'white';
+            } else if (status === 'success') {
+                node.style.background = '#3fb950';
+                node.style.borderColor = '#3fb950';
+                node.style.color = 'white';
+            } else {
+                node.style.background = 'var(--secondary)';
+                node.style.borderColor = 'var(--glass-border)';
+                node.style.boxShadow = 'none';
+                node.style.color = 'var(--text-dim)';
+            }
+        }
 
         function addLog(msg, type = 'info') {
             const log = document.getElementById('saga-log');
@@ -596,15 +647,11 @@
 
         async function checkHealth() {
             try {
-                const start = Date.now();
                 const res = await fetch(`${apiUrl}/health`);
-                const duration = Date.now() - start;
-                
                 if (res.ok) {
                     const dot = document.getElementById('status-dot');
                     dot.className = 'status-dot active';
                     document.getElementById('status-text').innerText = 'NODE ONLINE';
-                    document.getElementById('stat-latency').innerText = `${duration}ms`;
                 }
             } catch (e) {
                 const dot = document.getElementById('status-dot');
@@ -666,6 +713,13 @@
             overlay.style.display = 'flex';
             document.getElementById('overlay-text').innerText = type === 'success' ? 'ORCHESTRATING ATOMIC SAGA' : 'SIMULATING DISTRIBUTED CONFLICT';
             
+            // Reset visualizer
+            document.getElementById('flow-progress').style.width = '0%';
+            updateNodeStyle('order', 'default');
+            updateNodeStyle('inventory', 'default');
+            updateNodeStyle('payment', 'default');
+            document.getElementById('protocol-insight').innerText = "Signal broadcasted...";
+
             addLog(`Triggering saga orchestrator [ID:${Math.floor(Math.random()*1000)}]...`);
             
             try {
@@ -681,11 +735,9 @@
                 });
 
                 if (res.ok) {
-                    const data = await res.json();
-                    const orderId = data.data.order.id;
-                    addLog(`Order ${orderId.slice(-6)} received. Saga initialized.`, "info");
-                    
-                    // Start polling real saga status
+                    const responseData = await res.json();
+                    const orderId = responseData.data.order.id;
+                    addLog(`Order ${orderId.slice(-6)} received. Protocol initialization.`, "info");
                     pollSagaStatus(orderId);
                 }
 
@@ -701,7 +753,7 @@
 
         async function pollSagaStatus(orderId) {
             let attempts = 0;
-            const maxAttempts = 15;
+            const maxAttempts = 20;
             const processedSteps = new Set();
             
             const poll = setInterval(async () => {
@@ -717,28 +769,58 @@
                     });
                     
                     if (res.ok) {
-                        const saga = await res.json();
+                        const raw = await res.json();
+                        const saga = raw.data; // CRITICAL FIX: Backend wraps in .data
                         
                         saga.step_logs.forEach(log => {
                             const key = `${log.step_name}-${log.status}`;
                             if (!processedSteps.has(key)) {
-                                let msg = `Step: ${log.step_name} -> ${log.status.toUpperCase()}`;
-                                let type = 'info';
-                                
-                                if (log.status === 'completed') type = 'success';
-                                if (log.status === 'failed') type = 'error';
-                                if (log.status === 'compensating') type = 'warn';
-                                if (log.status === 'compensated') type = 'error';
-                                
-                                addLog(msg, type);
+                                let displayStep = log.step_name.replace('saga_init', 'Orchestration Start').replace('_', ' ');
+                                addLog(`Step: ${displayStep} -> ${log.status.toUpperCase()}`, 
+                                       log.status === 'completed' ? 'success' : (log.status === 'failed' || log.status === 'compensated' ? 'error' : 'warn'));
                                 processedSteps.add(key);
+
+                                // Update Visual Flow
+                                if (log.step_name === 'saga_init' && log.status === 'completed') {
+                                    updateNodeStyle('order', 'success');
+                                    document.getElementById('flow-progress').style.width = '20%';
+                                    document.getElementById('protocol-insight').innerText = "Orchestrator ready. Routing...";
+                                }
+                                if (log.step_name === 'reserve_inventory') {
+                                    if (log.status === 'running') {
+                                        updateNodeStyle('inventory', 'active');
+                                        document.getElementById('flow-progress').style.width = '50%';
+                                        document.getElementById('protocol-insight').innerText = "Service: STOCK. Checking availability...";
+                                    } else if (log.status === 'completed') {
+                                        updateNodeStyle('inventory', 'success');
+                                        document.getElementById('flow-progress').style.width = '60%';
+                                        document.getElementById('protocol-insight').innerText = "Stock reserved. Approving payment node...";
+                                    } else if (log.status === 'compensated') {
+                                        updateNodeStyle('inventory', 'error');
+                                        document.getElementById('protocol-insight').innerText = "Saga Failure: Stock released due to downstream conflict.";
+                                    }
+                                }
+                                if (log.step_name === 'process_payment') {
+                                    if (log.status === 'running') {
+                                        updateNodeStyle('payment', 'active');
+                                        document.getElementById('flow-progress').style.width = '90%';
+                                        document.getElementById('protocol-insight').innerText = "Service: PAYMENT. Processing transaction...";
+                                    } else if (log.status === 'completed') {
+                                        updateNodeStyle('payment', 'success');
+                                        document.getElementById('flow-progress').style.width = '100%';
+                                        document.getElementById('protocol-insight').innerText = "Payment approved. Finalizing atomicity...";
+                                    } else if (log.status === 'failed') {
+                                        updateNodeStyle('payment', 'error');
+                                        document.getElementById('protocol-insight').innerText = "Conflict Detected: Payment service rejected request.";
+                                    }
+                                }
                             }
                         });
 
                         if (saga.status === 'completed' || saga.status === 'compensated') {
-                            addLog(`Distributed Saga Finalized: ${saga.status.toUpperCase()}`, saga.status === 'completed' ? 'success' : 'error');
+                            addLog(`Distributed Outcome: ${saga.status.toUpperCase()}`, saga.status === 'completed' ? 'success' : 'error');
                             clearInterval(poll);
-                            fetchOrders();
+                            setTimeout(fetchOrders, 1000);
                         }
                     }
                 } catch (e) {}
@@ -752,14 +834,11 @@
                 const res = await fetch(`${apiUrl}/api/orders?page=1&page_size=12`, { headers });
                 
                 if (res.ok) {
-                    const data = await res.json();
-                    renderOrders(data.data.orders);
-                    const count = data.data.total_count || 0;
+                    const raw = await res.json();
+                    const data = raw.data;
+                    renderOrders(data.orders);
+                    const count = data.total_count || 0;
                     document.getElementById('stat-orders').innerText = count;
-                    
-                    if(count > lastOrderCount) {
-                        addLog(`Telemetry sync: Detected ${count - lastOrderCount} new events.`);
-                    }
                     lastOrderCount = count;
                 }
             } catch (e) {}
