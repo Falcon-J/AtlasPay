@@ -133,6 +133,30 @@ var (
 		[]string{"topic", "group"},
 	)
 
+	kafkaEventProcessingAttempts = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kafka_event_processing_attempts_total",
+			Help: "Total number of Kafka event processing attempts",
+		},
+		[]string{"topic", "event_type", "status"},
+	)
+
+	kafkaEventRetries = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kafka_event_retries_total",
+			Help: "Total number of Kafka event processing retries",
+		},
+		[]string{"topic", "event_type"},
+	)
+
+	deadLetterEvents = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "dead_letter_events_total",
+			Help: "Total number of events written to dead-letter storage",
+		},
+		[]string{"topic", "event_type"},
+	)
+
 	kafkaConsumerLag = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "kafka_consumer_lag",
@@ -218,6 +242,18 @@ func RecordKafkaProduced(topic string) {
 // RecordKafkaConsumed records Kafka message consumption
 func RecordKafkaConsumed(topic, group string) {
 	kafkaMessagesConsumed.WithLabelValues(topic, group).Inc()
+}
+
+func RecordKafkaEventAttempt(topic, eventType, status string) {
+	kafkaEventProcessingAttempts.WithLabelValues(topic, eventType, status).Inc()
+}
+
+func RecordKafkaRetry(topic, eventType string) {
+	kafkaEventRetries.WithLabelValues(topic, eventType).Inc()
+}
+
+func RecordDeadLetterEvent(topic, eventType string) {
+	deadLetterEvents.WithLabelValues(topic, eventType).Inc()
 }
 
 // RecordKafkaLag records Kafka consumer lag

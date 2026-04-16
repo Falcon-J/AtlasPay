@@ -10,6 +10,7 @@ const totalOrders = new Counter('total_orders');
 
 // Test configuration
 export const options = {
+    summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
     stages: [
         // Ramp up to 100 VUs over 1 minute
         { duration: '1m', target: 100 },
@@ -39,9 +40,11 @@ let authToken = '';
 
 // Setup function - runs once before all VUs
 export function setup() {
+    const email = `test-${Date.now()}@example.com`;
+
     // Register a test user
     const registerRes = http.post(`${BASE_URL}/api/auth/register`, JSON.stringify({
-        email: `test-${Date.now()}@example.com`,
+        email: email,
         password: 'testpassword123',
         first_name: 'Load',
         last_name: 'Test'
@@ -50,9 +53,14 @@ export function setup() {
     });
 
     if (registerRes.status === 201 || registerRes.status === 409) {
+        if (registerRes.status === 201) {
+            const body = JSON.parse(registerRes.body);
+            return { token: body.data.access_token };
+        }
+
         // Login
         const loginRes = http.post(`${BASE_URL}/api/auth/login`, JSON.stringify({
-            email: 'test@example.com',
+            email: email,
             password: 'testpassword123'
         }), {
             headers: { 'Content-Type': 'application/json' }
@@ -140,7 +148,10 @@ export default function(data) {
             sleep(0.5);
             
             group('Get Order', () => {
-                const getRes = http.get(`${BASE_URL}/api/orders/${orderId}`, { headers });
+                const getRes = http.get(`${BASE_URL}/api/orders/${orderId}`, {
+                    headers,
+                    tags: { name: 'GET /api/orders/{id}' },
+                });
                 check(getRes, {
                     'get order status is 200': (r) => r.status === 200,
                     'order data matches': (r) => {
@@ -187,21 +198,30 @@ export function teardown(data) {
 export function handleSummary(data) {
     return {
         'stdout': textSummary(data, { indent: ' ', enableColors: true }),
-        'scripts/k6/results/summary.json': JSON.stringify(data, null, 2),
+        'results/summary.json': JSON.stringify(data, null, 2),
     };
 }
 
 function textSummary(data, opts) {
     const metrics = data.metrics;
+    const value = (metricName, fieldName, fallback = 0) => {
+        const metric = metrics[metricName];
+        if (!metric || !metric.values || metric.values[fieldName] === undefined || metric.values[fieldName] === null) {
+            return fallback;
+        }
+        return metric.values[fieldName];
+    };
+    const fixed = (metricName, fieldName, decimals = 2) => value(metricName, fieldName).toFixed(decimals);
+
     let output = '\n========== LOAD TEST RESULTS ==========\n\n';
     
-    output += `Total Requests: ${metrics.http_reqs ? metrics.http_reqs.count : 0}\n`;
-    output += `Failed Requests: ${metrics.http_req_failed ? (metrics.http_req_failed.rate * 100).toFixed(2) : 0}%\n`;
-    output += `Avg Response Time: ${metrics.http_req_duration ? metrics.http_req_duration.avg.toFixed(2) : 0}ms\n`;
-    output += `P95 Response Time: ${metrics.http_req_duration ? metrics.http_req_duration['p(95)'].toFixed(2) : 0}ms\n`;
-    output += `P99 Response Time: ${metrics.http_req_duration ? metrics.http_req_duration['p(99)'].toFixed(2) : 0}ms\n`;
-    output += `Total Orders: ${metrics.total_orders ? metrics.total_orders.count : 0}\n`;
-    output += `Order Success Rate: ${metrics.order_success_rate ? (metrics.order_success_rate.rate * 100).toFixed(2) : 0}%\n`;
+    output += `Total Requests: ${value('http_reqs', 'count')}\n`;
+    output += `Failed Requests: ${(value('http_req_failed', 'rate') * 100).toFixed(2)}%\n`;
+    output += `Avg Response Time: ${fixed('http_req_duration', 'avg')}ms\n`;
+    output += `P95 Response Time: ${fixed('http_req_duration', 'p(95)')}ms\n`;
+    output += `P99 Response Time: ${fixed('http_req_duration', 'p(99)')}ms\n`;
+    output += `Total Orders: ${value('total_orders', 'count')}\n`;
+    output += `Order Success Rate: ${(value('order_success_rate', 'rate') * 100).toFixed(2)}%\n`;
     
     output += '\n========================================\n';
     

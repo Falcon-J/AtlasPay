@@ -1,13 +1,6 @@
 global:
-  scrape_interval: 60s
-  evaluation_interval: 60s
-
-# Push metrics to Grafana Cloud
-remote_write:
-  - url: https://prometheus-prod-43-prod-ap-south-1.grafana.net/api/prom/push
-    basic_auth:
-      username: 2951412
-      password: ${GRAFANA_CLOUD_PASSWORD}
+  scrape_interval: 15s
+  evaluation_interval: 15s
 
 scrape_configs:
   # Prometheus self-monitoring
@@ -18,7 +11,7 @@ scrape_configs:
   # AtlasPay API Gateway
   - job_name: 'api-gateway'
     static_configs:
-      - targets: ['host.docker.internal:8080']
+      - targets: ['api-gateway:8080']
     metrics_path: '/metrics'
 
   # Individual services (when running separately)

@@ -34,3 +34,6 @@ go.work
 /bin/
 /dist/
 /tmp/
+/.cache/
+/prep/
+/scripts/k6/results/*.json

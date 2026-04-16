@@ -24,6 +24,10 @@ spec:
         env:
         - name: SERVER_PORT
           value: "8080"
+        - name: RATE_LIMIT_REQUESTS
+          value: "100000"
+        - name: RATE_LIMIT_BURST
+          value: "100000"
         - name: DB_HOST
           valueFrom:
             configMapKeyRef:
@@ -44,11 +48,26 @@ spec:
             configMapKeyRef:
               name: atlaspay-config
               key: redis_host
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: redis_port
         - name: KAFKA_BROKERS
           valueFrom:
             configMapKeyRef:
               name: atlaspay-config
               key: kafka_brokers
+        - name: KAFKA_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: kafka_enabled
+        - name: KAFKA_GROUP_ID
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: kafka_group_id
         - name: JWT_ACCESS_SECRET
           valueFrom:
             secretKeyRef:

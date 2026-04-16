@@ -4,7 +4,7 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](https://docker.com/)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-Ready-326CE5?style=flat&logo=kubernetes)](https://kubernetes.io/)
 
-A production-grade distributed payment platform built with Go, demonstrating microservices architecture, event-driven patterns, and cloud-native deployment.
+A distributed order and payment platform built with Go, demonstrating saga orchestration, payment idempotency, cache-aside reads, observability, and cloud-native deployment patterns.
 
 ## 🏗️ Architecture
 
@@ -41,16 +41,16 @@ A production-grade distributed payment platform built with Go, demonstrating mic
 
 ## ✨ Key Features
 
-| Feature | Implementation | Interview Points |
+| Feature | Implementation | Technical Notes |
 |---------|---------------|------------------|
 | **Saga Pattern** | Orchestrated distributed transactions | Compensating transactions, failure recovery |
-| **Event-Driven** | Kafka with exactly-once semantics | Dead letter queues, idempotent consumers |
-| **Caching** | Redis cache-aside pattern | 35% latency reduction |
+| **Event-Driven Order Flow** | Kafka-backed `order.created` processing | Async saga trigger with bounded retries and DLQ persistence |
+| **Caching** | Redis cache-aside pattern | Faster repeated reads with PostgreSQL as source of truth |
 | **Auth** | JWT with refresh token rotation | RBAC, secure session management |
-| **Observability** | Prometheus + Grafana + Jaeger | p95 latency, error rates, distributed tracing |
+| **Observability** | Prometheus + Grafana + Jaeger infrastructure | Request metrics, error rates, dashboard-ready telemetry |
 | **Rate Limiting** | Token bucket algorithm | Per-IP/user limiting |
 | **Chaos Testing** | Failure injection scripts | Kafka down, DB slow, Redis failure |
-| **Load Testing** | k6 with 500 VU stress test | 10k+ RPM benchmark |
+| **Load Testing** | k6 staged-load script | Throughput and latency validation workflow |
 | **Visual Dashboard** | Premium Vanilla JS & CSS | Demo-ready UI, real-time tracking |
 
 ## 🚀 Quick Start
@@ -93,9 +93,11 @@ docker-compose up -d
 ```
 
 ## 🎥 Demo & Learning Resources
-- **[Premium Dashboard](file:///c:/Users/ojade/Downloads/newresumeproject/AtlasPay/web/index.html)**: Visualize Saga states and system health.
-- **[User Story Scenarios](file:///c:/Users/ojade/Downloads/newresumeproject/AtlasPay/docs/USER_STORIES.md)**: Real-world business cases (Happy path vs Payment failure).
-- **[1-Day Mastery Roadmap](file:///c:/Users/ojade/Downloads/newresumeproject/AtlasPay/docs/FREE_DEPLOYMENT.md)**: How to prepare for your senior interview.
+- **[Premium Dashboard](web/index.html)**: Visualize Saga states and system health.
+- **[User Story Scenarios](docs/USER_STORIES.md)**: Real-world business cases (Happy path vs Payment failure).
+- **[Local Deployment Notes](docs/FREE_DEPLOYMENT.md)**: Free/local options for validating and recording the system.
+- **[Current State](docs/CURRENT_STATE.md)**: Implemented behavior, validation targets, and production-hardening roadmap.
+- **[Performance Results](docs/PERFORMANCE_RESULTS.md)**: Template for measured throughput and latency evidence.
 
 ## 📊 API Endpoints
 
@@ -150,15 +152,15 @@ stateDiagram-v2
 - Payment fails → Inventory automatically released
 - Any step fails → Previous steps compensated in reverse order
 
-## 📈 Performance Results
+## 📈 Performance Targets
 
 | Metric | Result |
 |--------|--------|
-| Requests/min | 10,000+ |
-| P95 Latency | <150ms |
-| P99 Latency | <250ms |
-| Cache Hit Rate | 85%+ |
-| Error Rate | <0.1% |
+| Requests/min | Validated through k6 load-test runs |
+| P95 Latency | Tracked through Prometheus histograms and k6 thresholds |
+| P99 Latency | Tracked during load-test runs |
+| Cache Hit Rate | Exposed through cache metrics |
+| Error Rate | Tracked through HTTP and load-test metrics |
 
 ## 🧪 Testing
 
@@ -219,21 +221,21 @@ AtlasPay/
 └── grafana/                # Dashboard configs
 ```
 
-## 💡 Interview Talking Points
+## 💡 Key Technical Talking Points
 
-1. **"Walk me through a distributed transaction"**
+1. **Saga flow**
    → Explain saga with order→inventory→payment flow and compensations
 
-2. **"How do you handle failures?"**
-   → Dead letter queues, circuit breakers, chaos testing results
+2. **Failure handling**
+   → Explain compensation, idempotency, retry boundaries, and chaos-test scenarios
 
-3. **"What about observability?"**
+3. **Observability**
    → Show Grafana dashboards: p95 latency, error rate, saga metrics
 
-4. **"Can it scale?"**
+4. **Scaling path**
    → k6 results, HPA configuration, Redis caching strategy
 
-5. **"Cost considerations?"**
+5. **Operational tradeoffs**
    → Cache hit rates, autoscaling policies, connection pooling
 
 ## 📄 License
@@ -242,4 +244,4 @@ MIT
 
 ---
 
-**Built with ❤️ for senior engineering interviews**
+**Built with ❤️ for FUTURE.**

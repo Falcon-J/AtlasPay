@@ -1,0 +1,8 @@
+.git
+.cache
+bin
+prep
+tmp
+dist
+*.log
+api-gateway.exe

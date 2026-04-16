@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 
 -- Refresh tokens table
 CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -27,9 +27,9 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     revoked BOOLEAN NOT NULL DEFAULT false
 );
 
-CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
-CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
-CREATE INDEX idx_refresh_tokens_expires ON refresh_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at);
 
 -- Orders table
 CREATE TABLE IF NOT EXISTS orders (
@@ -42,9 +42,9 @@ CREATE TABLE IF NOT EXISTS orders (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_orders_user_id ON orders(user_id);
-CREATE INDEX idx_orders_status ON orders(status);
-CREATE INDEX idx_orders_created_at ON orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 
 -- Order items table
 CREATE TABLE IF NOT EXISTS order_items (
@@ -57,8 +57,8 @@ CREATE TABLE IF NOT EXISTS order_items (
     total_price DECIMAL(10, 2) NOT NULL
 );
 
-CREATE INDEX idx_order_items_order_id ON order_items(order_id);
-CREATE INDEX idx_order_items_sku ON order_items(sku);
+CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_sku ON order_items(sku);
 
 -- Payments table
 CREATE TABLE IF NOT EXISTS payments (
@@ -75,10 +75,10 @@ CREATE TABLE IF NOT EXISTS payments (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_payments_order_id ON payments(order_id);
-CREATE INDEX idx_payments_user_id ON payments(user_id);
-CREATE INDEX idx_payments_idempotency_key ON payments(idempotency_key);
-CREATE INDEX idx_payments_status ON payments(status);
+CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
+CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_payments_idempotency_key ON payments(idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 
 -- Inventory table
 CREATE TABLE IF NOT EXISTS inventory (
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS inventory (
     CONSTRAINT reserved_less_than_quantity CHECK (reserved_qty <= quantity)
 );
 
-CREATE INDEX idx_inventory_sku ON inventory(sku);
+CREATE INDEX IF NOT EXISTS idx_inventory_sku ON inventory(sku);
 
 -- Reservations table
 CREATE TABLE IF NOT EXISTS reservations (
@@ -110,10 +110,10 @@ CREATE TABLE IF NOT EXISTS reservations (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_reservations_order_id ON reservations(order_id);
-CREATE INDEX idx_reservations_sku ON reservations(sku);
-CREATE INDEX idx_reservations_status ON reservations(status);
-CREATE INDEX idx_reservations_expires ON reservations(expires_at);
+CREATE INDEX IF NOT EXISTS idx_reservations_order_id ON reservations(order_id);
+CREATE INDEX IF NOT EXISTS idx_reservations_sku ON reservations(sku);
+CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
+CREATE INDEX IF NOT EXISTS idx_reservations_expires ON reservations(expires_at);
 
 -- Saga execution logs (for debugging and recovery)
 CREATE TABLE IF NOT EXISTS saga_logs (
@@ -126,8 +126,25 @@ CREATE TABLE IF NOT EXISTS saga_logs (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_saga_logs_saga_id ON saga_logs(saga_id);
-CREATE INDEX idx_saga_logs_status ON saga_logs(status);
+CREATE INDEX IF NOT EXISTS idx_saga_logs_saga_id ON saga_logs(saga_id);
+CREATE INDEX IF NOT EXISTS idx_saga_logs_status ON saga_logs(status);
+
+-- Dead-letter events for async processing failures
+CREATE TABLE IF NOT EXISTS dead_letter_events (
+    id VARCHAR(36) PRIMARY KEY,
+    topic VARCHAR(255) NOT NULL,
+    event_type VARCHAR(100) NOT NULL,
+    aggregate_id VARCHAR(100) NOT NULL,
+    correlation_id VARCHAR(100),
+    payload JSONB NOT NULL,
+    error_message TEXT NOT NULL,
+    attempts INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_dead_letter_events_topic ON dead_letter_events(topic);
+CREATE INDEX IF NOT EXISTS idx_dead_letter_events_event_type ON dead_letter_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_dead_letter_events_created_at ON dead_letter_events(created_at DESC);
 
 -- Insert sample inventory data for testing
 INSERT INTO inventory (id, sku, name, description, quantity, unit_price) VALUES
@@ -135,7 +152,8 @@ INSERT INTO inventory (id, sku, name, description, quantity, unit_price) VALUES
     ('inv-002', 'PHONE-001', 'iPhone 15 Pro', 'Apple iPhone 15 Pro 256GB', 250, 1199.99),
     ('inv-003', 'HEADPHONES-001', 'AirPods Pro', 'Apple AirPods Pro 2nd Gen', 500, 249.99),
     ('inv-004', 'WATCH-001', 'Apple Watch Ultra', 'Apple Watch Ultra 2', 150, 799.99),
-    ('inv-005', 'TABLET-001', 'iPad Pro 12.9"', 'Apple iPad Pro M2 chip', 200, 1099.99)
+    ('inv-005', 'TABLET-001', 'iPad Pro 12.9"', 'Apple iPad Pro M2 chip', 200, 1099.99),
+    ('inv-006', 'FAIL-PAYMENT-001', 'Demo Payment Failure Item', 'Reserved successfully, then forces payment failure for saga compensation demos', 50, 19.99)
 ON CONFLICT (sku) DO NOTHING;
 
 -- Insert admin user (password: admin123)

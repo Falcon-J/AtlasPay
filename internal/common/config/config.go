@@ -19,6 +19,8 @@ type ServerConfig struct {
 	Port         string
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
+	RateLimit    int
+	RateBurst    int
 }
 
 type DatabaseConfig struct {
@@ -40,13 +42,14 @@ type RedisConfig struct {
 type KafkaConfig struct {
 	Brokers []string
 	GroupID string
+	Enabled bool
 }
 
 type JWTConfig struct {
-	AccessSecret      string
-	RefreshSecret     string
-	AccessExpiry      time.Duration
-	RefreshExpiry     time.Duration
+	AccessSecret  string
+	RefreshSecret string
+	AccessExpiry  time.Duration
+	RefreshExpiry time.Duration
 }
 
 // Load returns configuration from environment variables
@@ -56,9 +59,11 @@ func Load() *Config {
 			Port:         getEnv("SERVER_PORT", "8080"),
 			ReadTimeout:  getDurationEnv("SERVER_READ_TIMEOUT", 15*time.Second),
 			WriteTimeout: getDurationEnv("SERVER_WRITE_TIMEOUT", 15*time.Second),
+			RateLimit:    getIntEnv("RATE_LIMIT_REQUESTS", 100),
+			RateBurst:    getIntEnv("RATE_LIMIT_BURST", 10),
 		},
 		Database: DatabaseConfig{
-			Host:     getEnv("DB_HOST", "localhost"),
+			Host:     getEnv("DB_HOST", "127.0.0.1"),
 			Port:     getEnv("DB_PORT", "5432"),
 			User:     getEnv("DB_USER", "atlaspay"),
 			Password: getEnv("DB_PASSWORD", "atlaspay_secret"),
@@ -66,14 +71,15 @@ func Load() *Config {
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
 		Redis: RedisConfig{
-			Host:     getEnv("REDIS_HOST", "localhost"),
+			Host:     getEnv("REDIS_HOST", "127.0.0.1"),
 			Port:     getEnv("REDIS_PORT", "6379"),
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getIntEnv("REDIS_DB", 0),
 		},
 		Kafka: KafkaConfig{
-			Brokers: []string{getEnv("KAFKA_BROKERS", "localhost:9092")},
+			Brokers: []string{getEnv("KAFKA_BROKERS", "127.0.0.1:9092")},
 			GroupID: getEnv("KAFKA_GROUP_ID", "atlaspay"),
+			Enabled: getBoolEnv("KAFKA_ENABLED", false),
 		},
 		JWT: JWTConfig{
 			AccessSecret:  getEnv("JWT_ACCESS_SECRET", "atlaspay-access-secret-change-in-prod"),
@@ -95,6 +101,15 @@ func getIntEnv(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if intValue, err := strconv.Atoi(value); err == nil {
 			return intValue
+		}
+	}
+	return defaultValue
+}
+
+func getBoolEnv(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if boolValue, err := strconv.ParseBool(value); err == nil {
+			return boolValue
 		}
 	}
 	return defaultValue

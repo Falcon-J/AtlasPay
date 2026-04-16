@@ -1,14 +1,14 @@
 # AtlasPay - 100% FREE Deployment Options
 
-## 🎯 Best Strategy for Portfolio (No Payment Required)
+## 🎯 Best Strategy for Portfolio Validation (No Payment Required)
 
-For ₹20-30 LPA interviews, you need **proof** that it works. Here's how to get that for FREE:
+Use these options to validate the project locally or on free tiers and capture evidence that the system works.
 
 ---
 
 ## Option 1: Local Kubernetes Demo (RECOMMENDED)
 
-**Best for**: Screenshots, recordings, interview demos
+**Best for**: Screenshots, recordings, and technical demos
 
 ### Setup minikube (Free, Local K8s)
 
@@ -40,7 +40,7 @@ minikube service api-gateway --url
 
 ### Screenshots for Resume:
 ```bash
-# These commands give you interview-ready screenshots
+# These commands give you useful validation screenshots
 kubectl get pods -o wide
 kubectl get hpa
 kubectl top pods
@@ -132,7 +132,7 @@ services:
 
 ---
 
-## 📸 What to Screenshot for Interviews
+## 📸 What to Screenshot for Project Notes
 
 ### Must-Have Screenshots:
 
@@ -151,7 +151,7 @@ kubectl get hpa
 3. **Load Test Results**
 ```bash
 k6 run scripts/k6/load-test.js
-# Shows: 10k+ requests, p95 < 200ms
+# Shows: total requests, p95 latency, and error rate
 ```
 
 4. **Grafana Dashboard**
@@ -184,13 +184,13 @@ bash chaos/run-tests.sh
 
 ---
 
-## 📋 Interview-Ready Without Cloud
+## 📋 Demo-Ready Without Cloud
 
 You can demonstrate ALL of these locally:
 
 | Claim | How to Prove |
 |-------|--------------|
-| "Handles 10k+ RPM" | k6 load test screenshot |
+| "Handles sustained load" | k6 load test output |
 | "Kubernetes deployment" | minikube + kubectl screenshots |
 | "Autoscaling" | HPA screenshot showing scale-up |
 | "Saga transactions" | Code walkthrough + logs |
@@ -221,11 +221,11 @@ k6 run scripts/k6/load-test.js
 
 ## FAQ
 
-**Q: Do I need cloud for ₹20-30 LPA jobs?**
-A: No! A well-documented local project with screenshots beats a poorly documented cloud deployment.
+**Q: Do I need cloud to validate this project?**
+A: No. A well-documented local project with screenshots and repeatable commands is enough for most technical reviews.
 
-**Q: What if they ask "Is it deployed?"**
-A: "I have full Kubernetes manifests and deployment scripts. During development, I run it locally with minikube. I can deploy to any cloud in under 30 minutes."
+**Q: What if someone asks whether it is deployed?**
+A: The repository includes Kubernetes manifests and deployment scripts. During development, it can run locally with minikube and can be deployed to a cloud provider with the same containerized API.
 
 **Q: Free trials require credit card?**
 A: Render, Railway, Koyeb, and Grafana Cloud all work without credit cards.

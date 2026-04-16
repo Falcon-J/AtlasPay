@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -13,6 +15,8 @@ import (
 	"github.com/atlaspay/platform/internal/common/cache"
 	"github.com/atlaspay/platform/internal/common/config"
 	"github.com/atlaspay/platform/internal/common/database"
+	"github.com/atlaspay/platform/internal/common/dlq"
+	"github.com/atlaspay/platform/internal/common/kafka"
 	"github.com/atlaspay/platform/internal/common/logger"
 	"github.com/atlaspay/platform/internal/common/metrics"
 	"github.com/atlaspay/platform/internal/common/middleware"
@@ -25,7 +29,8 @@ import (
 func main() {
 	// Initialize logger
 	logger.Init("api-gateway")
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// Load configuration
 	cfg := config.Load()
@@ -73,12 +78,34 @@ func main() {
 	orderRepo := order.NewRepository(db.Pool, redisCache)
 	paymentRepo := payment.NewRepository(db.Pool)
 	inventoryRepo := inventory.NewRepository(db.Pool, redisCache)
+	dlqRepo := dlq.NewRepository(db.Pool)
+
+	var kafkaProducer *kafka.Producer
+	if cfg.Kafka.Enabled {
+		kafkaProducer = kafka.NewProducer(cfg.Kafka.Brokers)
+		defer kafkaProducer.Close()
+	}
 
 	// Initialize services
 	authService := auth.NewService(authRepo, jwtManager, cfg.JWT.RefreshExpiry)
 	paymentService := payment.NewService(paymentRepo)
 	inventoryService := inventory.NewService(inventoryRepo)
-	orderService := order.NewService(orderRepo, inventoryService, paymentService)
+	orderService := order.NewServiceWithKafka(orderRepo, inventoryService, paymentService, kafkaProducer, cfg.Kafka.Enabled)
+
+	var orderConsumer *kafka.Consumer
+	if cfg.Kafka.Enabled {
+		orderConsumer = kafka.NewConsumerWithOptions(
+			cfg.Kafka.Brokers,
+			"atlaspay.orders",
+			cfg.Kafka.GroupID+"-orders",
+			orderService,
+			dlqRepo,
+			kafkaProducer,
+		)
+		defer orderConsumer.Close()
+		go orderConsumer.Start(ctx)
+		logger.Info(ctx).Str("topic", "atlaspay.orders").Msg("Kafka order worker started")
+	}
 
 	// Initialize handlers
 	authHandler := auth.NewHandler(authService)
@@ -86,8 +113,8 @@ func main() {
 	paymentHandler := payment.NewHandler(paymentService)
 	inventoryHandler := inventory.NewHandler(inventoryService)
 
-	// Initialize rate limiter (100 requests per minute, burst of 10)
-	rateLimiter := middleware.NewRateLimiter(100, time.Minute, 10)
+	// Initialize rate limiter
+	rateLimiter := middleware.NewRateLimiter(cfg.Server.RateLimit, time.Minute, cfg.Server.RateBurst)
 
 	// Setup router
 	r := chi.NewRouter()
@@ -125,6 +152,7 @@ func main() {
 
 			// Admin-only endpoints would go here
 			r.Get("/admin/stats", adminStats())
+			r.Get("/admin/dlq", adminDLQ(dlqRepo))
 		})
 	})
 
@@ -150,6 +178,7 @@ func main() {
 	<-quit
 
 	logger.Info(ctx).Msg("shutting down server...")
+	cancel()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -210,5 +239,21 @@ func adminStats() http.HandlerFunc {
 		// Admin stats endpoint placeholder
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"message":"admin stats endpoint"}`))
+	}
+}
+
+func adminDLQ(repo *dlq.Repository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		events, err := repo.ListRecent(r.Context(), limit)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"error":"failed to list dead-letter events"}`))
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"events": events})
 	}
 }

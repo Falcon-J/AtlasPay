@@ -1,11 +1,11 @@
 # 📖 AtlasPay: User Stories & Business Scenarios
 
-For senior engineering interviews, it is crucial to explain NOT JUST the code, but the **Business Value** and **Failure Modes** of the system.
+These scenarios explain the business value and failure modes behind the AtlasPay implementation.
 
 ---
 
 ## 1. The Happy Path: "A Seamless Multi-Service Purchase"
-**User Story**: As a customer, I want to buy a laptop so that I can start my new job.
+**User Story**: As a customer, I want to buy a laptop so that I can complete checkout reliably.
 
 1.  **Trigger**: User clicks "Buy Now" on the frontend.
 2.  **Order Service**: Creates an order with status `PENDING`.
@@ -43,5 +43,5 @@ For senior engineering interviews, it is crucial to explain NOT JUST the code, b
 
 ---
 
-## 💡 Interview Tip: Why This Matters?
-When asked **"How do you handle distributed consistency?"**, don't just say "Saga". Use **Scenario #3** as your answer. It proves you understand that in microservices, you cannot use a single DB transaction, so you must write "undo" logic for every "do" action.
+## 💡 Why This Matters
+Scenario #3 is the key consistency case. In a distributed checkout flow, a single database transaction is not enough once inventory and payment become independent boundaries, so every successful action needs a clear compensating action.

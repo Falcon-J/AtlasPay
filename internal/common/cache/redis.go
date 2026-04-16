@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/atlaspay/platform/internal/common/metrics"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -55,8 +56,10 @@ func (c *RedisCache) Set(ctx context.Context, key string, value interface{}, exp
 func (c *RedisCache) Get(ctx context.Context, key string, dest interface{}) error {
 	data, err := c.client.Get(ctx, key).Bytes()
 	if err != nil {
+		metrics.RecordCacheMiss()
 		return err
 	}
+	metrics.RecordCacheHit()
 	return json.Unmarshal(data, dest)
 }
 

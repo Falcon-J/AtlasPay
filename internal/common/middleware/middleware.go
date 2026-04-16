@@ -9,6 +9,7 @@ import (
 	"github.com/atlaspay/platform/internal/common/auth"
 	"github.com/atlaspay/platform/internal/common/errors"
 	"github.com/atlaspay/platform/internal/common/logger"
+	"github.com/atlaspay/platform/internal/common/metrics"
 	"github.com/google/uuid"
 )
 
@@ -35,12 +36,15 @@ func RequestLogger(next http.Handler) http.Handler {
 
 		next.ServeHTTP(wrapped, r)
 
+		duration := time.Since(start)
+		metrics.RecordHTTPRequest(r.Method, r.URL.Path, wrapped.status, duration)
+
 		// Log request
 		logger.Info(ctx).
 			Str("method", r.Method).
 			Str("path", r.URL.Path).
 			Int("status", wrapped.status).
-			Dur("duration", time.Since(start)).
+			Dur("duration", duration).
 			Msg("request completed")
 	})
 }

@@ -3,12 +3,17 @@ package saga
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/atlaspay/platform/internal/common/logger"
+	"github.com/atlaspay/platform/internal/common/metrics"
 	"github.com/google/uuid"
 )
+
+// ErrCompensated indicates a saga failed in business logic but completed compensation.
+var ErrCompensated = errors.New("saga failed and compensated")
 
 // StepStatus represents the status of a saga step
 type StepStatus string
@@ -93,6 +98,7 @@ func NewSaga(name string, steps []Step) *Saga {
 func (o *Orchestrator) Execute(ctx context.Context, saga *Saga, initialData interface{}) error {
 	o.sagas[saga.ID] = saga
 	saga.Data["initial"] = initialData
+	startedAt := time.Now()
 
 	logger.Info(ctx).
 		Str("saga_id", saga.ID).
@@ -134,7 +140,9 @@ func (o *Orchestrator) Execute(ctx context.Context, saga *Saga, initialData inte
 				Msg("saga step failed, starting compensation")
 
 			// Start compensation
-			return o.compensate(ctx, saga, i)
+			err := o.compensate(ctx, saga, i)
+			metrics.RecordSaga(saga.Name, string(saga.Status), time.Since(startedAt))
+			return err
 		}
 
 		saga.StepLogs[i].Status = StepCompleted
@@ -154,6 +162,7 @@ func (o *Orchestrator) Execute(ctx context.Context, saga *Saga, initialData inte
 		Str("saga_name", saga.Name).
 		Msg("saga completed successfully")
 
+	metrics.RecordSaga(saga.Name, string(saga.Status), time.Since(startedAt))
 	return nil
 }
 
@@ -185,6 +194,7 @@ func (o *Orchestrator) compensate(ctx context.Context, saga *Saga, failedStep in
 			Str("step", step.Name).
 			Msg("executing compensation")
 
+		metrics.RecordSagaCompensation(saga.Name, step.Name)
 		err := step.Compensation(ctx, saga.Data)
 		now := time.Now()
 		saga.StepLogs[len(saga.StepLogs)-1].EndedAt = &now
@@ -218,7 +228,7 @@ func (o *Orchestrator) compensate(ctx context.Context, saga *Saga, failedStep in
 		Str("saga_id", saga.ID).
 		Msg("saga compensation completed")
 
-	return fmt.Errorf("saga failed and compensated")
+	return ErrCompensated
 }
 
 // GetSaga retrieves a saga by ID

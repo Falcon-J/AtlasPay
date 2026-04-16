@@ -1,6 +1,6 @@
 #!/bin/bash
 # Local Demo Setup Script for AtlasPay
-# Use this to prepare for interviews - captures all screenshots
+# Use this to validate the local demo and capture screenshots
 
 set -e
 

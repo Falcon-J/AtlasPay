@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/atlaspay/platform/internal/common/dlq"
 	"github.com/atlaspay/platform/internal/common/logger"
+	"github.com/atlaspay/platform/internal/common/metrics"
 	"github.com/atlaspay/platform/pkg/events"
 	"github.com/segmentio/kafka-go"
 )
@@ -79,6 +81,7 @@ func (p *Producer) Publish(ctx context.Context, topic string, event *events.Even
 		Str("aggregate_id", event.AggregateID).
 		Msg("event published")
 
+	metrics.RecordKafkaProduced(topic)
 	return nil
 }
 
@@ -94,8 +97,14 @@ func (p *Producer) Close() error {
 
 // Consumer handles Kafka message consumption
 type Consumer struct {
-	reader  *kafka.Reader
-	handler EventHandler
+	reader       *kafka.Reader
+	handler      EventHandler
+	topic        string
+	groupID      string
+	maxAttempts  int
+	retryBackoff time.Duration
+	dlqRecorder  *dlq.Repository
+	dlqProducer  *Producer
 }
 
 // EventHandler processes events
@@ -112,6 +121,17 @@ func (f EventHandlerFunc) Handle(ctx context.Context, event *events.Event) error
 
 // NewConsumer creates a new Kafka consumer
 func NewConsumer(brokers []string, topic, groupID string, handler EventHandler) *Consumer {
+	return NewConsumerWithOptions(brokers, topic, groupID, handler, nil, nil)
+}
+
+// NewConsumerWithOptions creates a Kafka consumer with retry and DLQ support.
+func NewConsumerWithOptions(
+	brokers []string,
+	topic, groupID string,
+	handler EventHandler,
+	dlqRecorder *dlq.Repository,
+	dlqProducer *Producer,
+) *Consumer {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        brokers,
 		Topic:          topic,
@@ -124,8 +144,14 @@ func NewConsumer(brokers []string, topic, groupID string, handler EventHandler) 
 	})
 
 	return &Consumer{
-		reader:  reader,
-		handler: handler,
+		reader:       reader,
+		handler:      handler,
+		topic:        topic,
+		groupID:      groupID,
+		maxAttempts:  3,
+		retryBackoff: 250 * time.Millisecond,
+		dlqRecorder:  dlqRecorder,
+		dlqProducer:  dlqProducer,
 	}
 }
 
@@ -156,16 +182,22 @@ func (c *Consumer) Start(ctx context.Context) {
 			// Add correlation ID to context
 			handlerCtx := logger.WithCorrelationID(ctx, event.CorrelationID)
 
-			// Handle event
-			if err := c.handler.Handle(handlerCtx, &event); err != nil {
+			// Handle event with bounded retries before committing to the group.
+			if err := c.handleWithRetry(handlerCtx, &event); err != nil {
 				logger.Error(handlerCtx).
 					Err(err).
 					Str("event_id", event.ID).
 					Str("event_type", string(event.Type)).
-					Msg("failed to handle event, sending to DLQ")
+					Int("attempts", c.maxAttempts).
+					Msg("failed to handle event after retries, sending to DLQ")
 
-				// TODO: Send to DLQ
-				// For now, just commit and move on
+				if dlqErr := c.recordDLQ(handlerCtx, &event, err); dlqErr != nil {
+					logger.Error(handlerCtx).
+						Err(dlqErr).
+						Str("event_id", event.ID).
+						Msg("failed to record dead-letter event")
+					continue
+				}
 			}
 
 			// Commit the message
@@ -177,8 +209,62 @@ func (c *Consumer) Start(ctx context.Context) {
 				Str("event_id", event.ID).
 				Str("event_type", string(event.Type)).
 				Msg("event processed")
+			metrics.RecordKafkaConsumed(c.topic, c.groupID)
 		}
 	}
+}
+
+func (c *Consumer) handleWithRetry(ctx context.Context, event *events.Event) error {
+	var err error
+	eventType := string(event.Type)
+	for attempt := 1; attempt <= c.maxAttempts; attempt++ {
+		err = c.handler.Handle(ctx, event)
+		if err == nil {
+			metrics.RecordKafkaEventAttempt(c.topic, eventType, "success")
+			return nil
+		}
+
+		metrics.RecordKafkaEventAttempt(c.topic, eventType, "failed")
+		if attempt < c.maxAttempts {
+			metrics.RecordKafkaRetry(c.topic, eventType)
+			time.Sleep(c.retryBackoff * time.Duration(attempt))
+		}
+	}
+	return err
+}
+
+func (c *Consumer) recordDLQ(ctx context.Context, event *events.Event, handlerErr error) error {
+	if c.dlqRecorder != nil {
+		if err := c.dlqRecorder.Record(ctx, &dlq.Event{
+			Topic:         c.topic,
+			EventType:     string(event.Type),
+			AggregateID:   event.AggregateID,
+			CorrelationID: event.CorrelationID,
+			Payload:       event.Payload,
+			ErrorMessage:  handlerErr.Error(),
+			Attempts:      c.maxAttempts,
+		}); err != nil {
+			return err
+		}
+		metrics.RecordDeadLetterEvent(c.topic, string(event.Type))
+	}
+
+	if c.dlqProducer != nil {
+		dlqEvent, err := events.NewEvent(events.EventType("event.dead_lettered"), event.AggregateID, event.CorrelationID, map[string]interface{}{
+			"topic":       c.topic,
+			"event_type":  event.Type,
+			"event_id":    event.ID,
+			"error":       handlerErr.Error(),
+			"attempts":    c.maxAttempts,
+			"failed_body": json.RawMessage(event.Payload),
+		})
+		if err != nil {
+			return err
+		}
+		return c.dlqProducer.Publish(ctx, events.TopicDLQ, dlqEvent)
+	}
+
+	return nil
 }
 
 // Close closes the consumer

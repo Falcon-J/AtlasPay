@@ -1,6 +1,6 @@
 # AtlasPay Cloud Deployment Guide
 
-To achieve "Google Scale" attention, you should deploy this system to the cloud. This allows you to hand an interviewer your phone (or they can use theirs) to see the **Saga Orchestrator** in action live.
+This guide shows how to deploy AtlasPay to a cloud environment so the Saga Orchestrator and dashboard can be demonstrated from a public URL.
 
 ## 🚀 5-Minute Deployment (Free Tier)
 
@@ -40,7 +40,7 @@ Once the backend is live, it will give you a URL (e.g., `https://atlaspay-api.on
 4. The system will now be live-synced globally!
 
 ## 📱 Mobile Demonstration Script
-When you are at the interview table:
+For a quick mobile walkthrough:
 1. Pull up the dashboard on your phone.
 2. Explain: *"This is a distributed system monitor I built to visualize the Saga pattern. It's running live on a distributed cluster with Redis for state and Postgres for persistence."*
 3. Click **"Initialize Cluster Context"**.

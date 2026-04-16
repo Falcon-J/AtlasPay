@@ -3,6 +3,7 @@ package payment
 import (
 	"context"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/atlaspay/platform/internal/common/errors"
@@ -100,7 +101,7 @@ func (s *Service) ProcessPayment(ctx context.Context, orderID, userID string, am
 	// Override for demo failure sku
 	// In a real system, the SKU might be checked earlier or the payment service might be told to fail.
 	// We'll rely on the repo or simulator if we wanted, but let's keep it simple.
-	
+
 	_, err := s.processPaymentInternal(ctx, userID, req)
 	return err
 }
@@ -156,10 +157,17 @@ func (s *Service) simulatePaymentGateway(payment *Payment) bool {
 	// Special case for demo failure SKU
 	// The frontend uses SKU 'FAIL-PAYMENT-001' to trigger failure.
 	// We'll check if the idempotency key contains 'FAIL' as a signal.
-	if payment.IdempotencyKey != "" && (len(payment.IdempotencyKey) > 10 && payment.IdempotencyKey[:4] == "FAIL") {
+	if strings.HasPrefix(payment.IdempotencyKey, "FAIL") {
 		return false
 	}
-	
+
+	// Keep demos deterministic: saga and explicit demo requests succeed
+	// unless they intentionally use the FAIL prefix above.
+	if strings.HasPrefix(payment.IdempotencyKey, "SAGA-") ||
+		strings.HasPrefix(payment.IdempotencyKey, "DEMO-") {
+		return true
+	}
+
 	// 95% success rate for general demo
 	return rand.Float32() < 0.95
 }
