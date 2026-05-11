@@ -3,8 +3,17 @@
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](https://docker.com/)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-Ready-326CE5?style=flat&logo=kubernetes)](https://kubernetes.io/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-AWS%20EC2-FF9900?style=flat&logo=amazon-aws)](http://52.23.219.80:8080/health)
 
 A distributed order and payment platform built with Go, demonstrating saga orchestration, payment idempotency, cache-aside reads, observability, and cloud-native deployment patterns.
+
+## 🌐 Live Deployment
+
+**[View Live Demo](http://52.23.219.80:8080/health)** - AWS EC2 Free Tier
+
+- **API Endpoint:** http://52.23.219.80:8080
+- **Health Check:** http://52.23.219.80:8080/health
+- **Status:** ✅ Running (PostgreSQL + Redis + API)
 
 ## 🏗️ Architecture
 
