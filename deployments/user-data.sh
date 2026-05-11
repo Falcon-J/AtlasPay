@@ -1,100 +1,57 @@
 #!/bin/bash
-# User data script for AtlasPay EC2 instance
-# This runs as root on instance startup
+# Lean AWS EC2 Deployment for AtlasPay (Free Tier Optimized)
+# Requires: Ubuntu 22.04, t2.micro/t3.micro, 1GB RAM
 
 set -e
 
-echo "=== AtlasPay EC2 Setup Starting ==="
+echo "=== AtlasPay EC2 Deployment Starting ==="
 
 # Update system
-yum update -y
-yum install -y docker git curl wget
+sudo apt update
+sudo apt upgrade -y
+
+# Install Docker & Docker Compose
+sudo apt install -y docker.io docker-compose-v2 git curl
+
+# Add user to docker group (avoid sudo)
+sudo usermod -aG docker ubuntu
 
 # Start Docker
-systemctl start docker
-systemctl enable docker
-usermod -aG docker ec2-user
-
-# Install Docker Compose
-curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-chmod +x /usr/local/bin/docker-compose
-
-# Wait for docker to be ready
-sleep 5
+sudo systemctl start docker
+sudo systemctl enable docker
 
 # Create app directory
-mkdir -p /opt/atlaspay
-cd /opt/atlaspay
+mkdir -p ~/atlaspay
+cd ~/atlaspay
 
 # Clone repository
 git clone https://github.com/Falcon-J/AtlasPay.git .
-cd /opt/atlaspay
+cd ~/atlaspay
 
-# Create environment file
-cat > .env.production << 'EOF'
-# Server
-SERVER_PORT=8080
-
-# Database (RDS)
-DB_HOST=${db_host}
-DB_PORT=5432
-DB_USER=${db_user}
-DB_PASSWORD=${db_password}
-DB_NAME=${db_name}
-DB_SSLMODE=require
-
-# Redis (self-hosted in container)
-REDIS_HOST=redis
-REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_DB=0
-
-# Kafka (self-hosted in container)
-KAFKA_BROKERS=kafka:9092
-
-# JWT
-JWT_ACCESS_SECRET=$(openssl rand -base64 32)
-JWT_REFRESH_SECRET=$(openssl rand -base64 32)
-
-# Timeouts
-SERVER_READ_TIMEOUT=15s
-SERVER_WRITE_TIMEOUT=15s
-EOF
-
-# Create docker-compose for EC2 (only app services, RDS is managed)
-cat > docker-compose.ec2.yml << 'EOF'
-version: '3.8'
+# Create optimized docker-compose for free tier
+cat > docker-compose.yml << 'EOF'
+version: "3.9"
 
 services:
-  api-gateway:
-    build: .
-    container_name: atlaspay-api-gateway
-    ports:
-      - "8080:8080"
+  postgres:
+    image: postgres:16-alpine
     environment:
-      - SERVER_PORT=8080
-      - DB_HOST=${RDS_HOST}
-      - DB_PORT=5432
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - DB_SSLMODE=require
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - KAFKA_BROKERS=kafka:9092
-    depends_on:
-      - redis
-      - kafka
+      POSTGRES_USER: atlaspay
+      POSTGRES_PASSWORD: atlaspay_secret
+      POSTGRES_DB: atlaspay
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "pg_isready -U atlaspay"]
+      interval: 10s
+      timeout: 5s
       retries: 3
 
   redis:
     image: redis:7-alpine
-    container_name: atlaspay-redis
     ports:
       - "6379:6379"
     volumes:
@@ -106,59 +63,96 @@ services:
       timeout: 5s
       retries: 3
 
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    restart: unless-stopped
+
   kafka:
     image: confluentinc/cp-kafka:7.5.0
-    container_name: atlaspay-kafka
+    depends_on:
+      - zookeeper
     ports:
       - "9092:9092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://kafka:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_HEAP_OPTS: "-Xmx256M -Xms256M"
+    restart: unless-stopped
+
+  api:
+    build: .
     depends_on:
-      - zookeeper
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: atlaspay
+      DB_PASSWORD: atlaspay_secret
+      DB_NAME: atlaspay
+      DB_SSLMODE: disable
+      
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      
+      KAFKA_BROKERS: kafka:9092
+      
+      SERVER_PORT: 8080
+      SERVER_READ_TIMEOUT: 15s
+      SERVER_WRITE_TIMEOUT: 15s
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server=localhost:9092"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
       retries: 3
 
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    container_name: atlaspay-zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-    restart: unless-stopped
-
 volumes:
+  postgres_data:
   redis_data:
 EOF
 
-# Set permissions
-chown -R ec2-user:ec2-user /opt/atlaspay
-chmod +x /opt/atlaspay/.env.production
+echo "✅ Docker Compose configuration created"
 
 # Start services
-cd /opt/atlaspay
-/usr/local/bin/docker-compose -f docker-compose.ec2.yml up -d
+echo "=== Starting services ==="
+docker compose up -d
 
-# Wait for services to be healthy
-echo "=== Waiting for services to be healthy ==="
-sleep 30
+# Wait for services to initialize
+echo "⏳ Waiting for services to be healthy (30-45 seconds)..."
+sleep 45
 
 # Check health
-if curl -f http://localhost:8080/health; then
+echo "🏥 Checking API health..."
+if curl -f http://localhost:8080/health 2>/dev/null; then
     echo "✅ AtlasPay is healthy!"
+    curl -s http://localhost:8080/health | jq .
 else
-    echo "⚠️ Health check failed, services may still be starting..."
+    echo "⚠️ Health check pending, services may still be starting..."
+    echo "Monitor with: docker compose logs -f api"
 fi
 
-# Setup CloudWatch logs (optional)
-yum install -y amazon-cloudwatch-agent
+# Display logs
+echo ""
+echo "=== Service Status ==="
+docker compose ps
 
-echo "=== AtlasPay EC2 Setup Complete ==="
-echo "API Gateway: http://$(hostname -f):8080"
+echo ""
+echo "=== Setup Complete ==="
+echo "🌐 Access API at: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):8080"
+echo "📊 Monitor logs: cd ~/atlaspay && docker compose logs -f"
+echo ""
+echo "🛑 To stop services: docker compose down"
+echo "🔄 To restart services: docker compose restart"
+
