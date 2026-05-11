@@ -263,10 +263,10 @@ func adminDLQ(repo *dlq.Repository) http.HandlerFunc {
 }
 
 // connectWithRetry attempts to connect to PostgreSQL with exponential backoff
-// Render provisions databases asynchronously, so we need to retry
+// Render provisions databases asynchronously (can take 60-120s), so we need aggressive retry
 func connectWithRetry(ctx context.Context, dbURL string) (*database.PostgresDB, error) {
-	maxAttempts := 10
-	backoff := time.Second
+	maxAttempts := 20
+	backoff := 2 * time.Second
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		db, err := database.NewPostgresDB(ctx, dbURL)
@@ -285,9 +285,9 @@ func connectWithRetry(ctx context.Context, dbURL string) (*database.PostgresDB, 
 
 			select {
 			case <-time.After(backoff):
-				backoff = time.Duration(float64(backoff) * 1.5) // Exponential backoff
-				if backoff > 30*time.Second {
-					backoff = 30 * time.Second // Cap at 30s
+				backoff = time.Duration(float64(backoff) * 1.5) // Exponential backoff: 2s, 3s, 4.5s, 6.75s...
+				if backoff > 60*time.Second {
+					backoff = 60 * time.Second // Cap at 60s for Render's slow provisioning
 				}
 			case <-ctx.Done():
 				return nil, fmt.Errorf("context cancelled during database retry")
