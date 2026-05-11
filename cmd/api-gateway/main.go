@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -37,15 +39,17 @@ func main() {
 
 	logger.Info(ctx).Str("port", cfg.Server.Port).Msg("starting API Gateway")
 
-	// Initialize database
-	db, err := database.NewPostgresDB(ctx, cfg.Database.DatabaseURL())
+	// Initialize database with retry (Render provisions DB async)
+	db, err := connectWithRetry(ctx, cfg.Database.DatabaseURL())
 	if err != nil {
-		logger.Fatal(ctx).Err(err).Msg("failed to connect to database")
+		logger.Fatal(ctx).Err(err).Msg("failed to connect to database after retries")
 	}
 	defer db.Close()
 
+	logger.Info(ctx).Msg("database connection established successfully")
+
 	// Run migrations (auto-initialize schema)
-	migrationSQL, err := os.ReadFile("./migrations/001_init.sql")
+	migrationSQL, err := readMigrationFile(ctx)
 	if err != nil {
 		logger.Warn(ctx).Err(err).Msg("failed to read migration file, skipping auto-migration")
 	} else {
@@ -256,4 +260,75 @@ func adminDLQ(repo *dlq.Repository) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"events": events})
 	}
+}
+
+// connectWithRetry attempts to connect to PostgreSQL with exponential backoff
+// Render provisions databases asynchronously, so we need to retry
+func connectWithRetry(ctx context.Context, dbURL string) (*database.PostgresDB, error) {
+	maxAttempts := 10
+	backoff := time.Second
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		db, err := database.NewPostgresDB(ctx, dbURL)
+		if err == nil {
+			logger.Info(ctx).Int("attempt", attempt).Msg("database connected successfully")
+			return db, nil
+		}
+
+		if attempt < maxAttempts {
+			logger.Warn(ctx).
+				Err(err).
+				Int("attempt", attempt).
+				Int("max_attempts", maxAttempts).
+				Dur("retry_in", backoff).
+				Msg("database connection failed, retrying...")
+
+			select {
+			case <-time.After(backoff):
+				backoff = time.Duration(float64(backoff) * 1.5) // Exponential backoff
+				if backoff > 30*time.Second {
+					backoff = 30 * time.Second // Cap at 30s
+				}
+			case <-ctx.Done():
+				return nil, fmt.Errorf("context cancelled during database retry")
+			}
+		} else {
+			return nil, fmt.Errorf("failed to connect to database after %d attempts: %w", maxAttempts, err)
+		}
+	}
+
+	return nil, fmt.Errorf("database connection exhausted all retry attempts")
+}
+
+// readMigrationFile attempts to read migration file from multiple possible paths
+// This handles different deployment scenarios (local, docker, render)
+func readMigrationFile(ctx context.Context) ([]byte, error) {
+	possiblePaths := []string{
+		"./migrations/001_init.sql",
+		"migrations/001_init.sql",
+		"/app/migrations/001_init.sql",
+		"../scripts/migrations/001_init.sql",
+		"scripts/migrations/001_init.sql",
+	}
+
+	// Also try based on executable directory
+	if ex, err := os.Executable(); err == nil {
+		exePath := filepath.Dir(ex)
+		possiblePaths = append(possiblePaths,
+			filepath.Join(exePath, "migrations/001_init.sql"),
+			filepath.Join(exePath, "../scripts/migrations/001_init.sql"),
+		)
+	}
+
+	var lastErr error
+	for _, path := range possiblePaths {
+		data, err := os.ReadFile(path)
+		if err == nil {
+			logger.Info(ctx).Str("path", path).Msg("migration file loaded")
+			return data, nil
+		}
+		lastErr = err
+	}
+
+	return nil, fmt.Errorf("migration file not found in any of %d paths (last error: %w)", len(possiblePaths), lastErr)
 }
