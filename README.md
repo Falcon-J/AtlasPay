@@ -15,6 +15,29 @@ A distributed order and payment platform built with Go, demonstrating saga orche
 - **Health Check:** http://52.23.219.80:8080/health
 - **Status:** ✅ Running (PostgreSQL + Redis + API)
 
+## 📺 Live Demo (5 Minutes)
+
+Want to see the system in action? Run the demo:
+
+**For Interviews/Presentations:**
+- 🎯 **Recommended:** [Manual curl commands](./DEMO_MANUAL_CURL.md) - Copy & paste, full control
+- 📋 **Full Guide:** [DEMO_GUIDE.md](./DEMO_GUIDE.md) - Complete walkthrough with talking points
+- 🔧 **Automated:** `./demo-api.sh http://52.23.219.80:8080` (bash/WSL)
+
+The demo shows:
+- ✅ User authentication (JWT tokens)
+- ✅ Order placement → Saga orchestration
+- ✅ Distributed transaction coordination (Order → Inventory → Payment)
+- ✅ Payment processing & idempotency
+- ✅ Real-time saga monitoring
+
+**Interview Points Covered:**
+- Saga pattern for distributed transactions
+- Idempotency for safe retries
+- Cache-aside pattern
+- Graceful degradation (Kafka optional)
+- Distributed tracing & correlation IDs
+
 ## 🏗️ Architecture
 
 ```
