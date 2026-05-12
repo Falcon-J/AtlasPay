@@ -556,7 +556,7 @@
                     <h2 class="card-title" style="margin-bottom: 2rem">Cluster Config</h2>
                     <div class="input-group" style="margin-bottom: 1.5rem">
                         <label>Target API Cluster</label>
-                        <input type="text" id="api-url" placeholder="https://api.cluster" value="https://atlaspay-api-19v2.onrender.com">
+                        <input type="text" id="api-url" placeholder="http://api.cluster" value="http://52.23.219.80:8080">
                     </div>
                     <button class="btn btn-primary" id="btn-connect" onclick="connect()">Connect Cluster</button>
                 </div>
@@ -565,7 +565,7 @@
     </div>
 
     <script>
-        let apiUrl = "https://atlaspay-api-19v2.onrender.com";
+        let apiUrl = "http://52.23.219.80:8080";
         let accessToken = null;
         let healthTimer, orderTimer;
         let lastOrderCount = 0;
