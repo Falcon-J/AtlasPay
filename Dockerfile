@@ -30,6 +30,9 @@ COPY --from=builder /app/api-gateway .
 # Copy migrations (optional, for running migrations on startup)
 COPY --from=builder /app/scripts/migrations ./migrations
 
+# Copy web UI
+COPY --from=builder /app/web ./web
+
 # Create non-root user
 RUN adduser -D -g '' appuser
 USER appuser

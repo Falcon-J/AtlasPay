@@ -135,7 +135,7 @@ func main() {
 	r.Get("/ready", readinessCheck(db))
 	r.Handle("/metrics", metrics.Handler())
 
-	// API routes
+	// API routes (must come before static file server catch-all)
 	r.Route("/api", func(r chi.Router) {
 		// Public routes (no auth required)
 		r.Mount("/auth", authHandler.Routes())
@@ -159,6 +159,10 @@ func main() {
 			r.Get("/admin/dlq", adminDLQ(dlqRepo))
 		})
 	})
+
+	// Serve static web UI (catch-all, must come last)
+	fs := http.FileServer(http.Dir("./web"))
+	r.Handle("/*", fs)
 
 	// Create server
 	srv := &http.Server{
