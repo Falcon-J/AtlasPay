@@ -196,8 +196,8 @@ while ($pollCount -lt $maxPolls) {
     $statusResponse = Invoke-WebRequest -Uri "$ApiUrl/api/orders/$orderId" -Method GET -Headers $headers -UseBasicParsing | ConvertFrom-Json
     
     $currentStatus = $statusResponse.data.status
-    $sagaState = $statusResponse.data.saga_state ?? "N/A"
-    $paymentStatus = $statusResponse.data.payment_status ?? "pending"
+    $sagaState = if ($statusResponse.data.saga_state) { $statusResponse.data.saga_state } else { "N/A" }
+    $paymentStatus = if ($statusResponse.data.payment_status) { $statusResponse.data.payment_status } else { "pending" }
     
     Write-Host "  Status: $currentStatus | Saga: $sagaState | Payment: $paymentStatus" -ForegroundColor Cyan
     
@@ -212,7 +212,7 @@ while ($pollCount -lt $maxPolls) {
     
     if ($currentStatus -eq "failed" -or $sagaState -eq "FAILED") {
         Write-Host ""
-        Write-Host "❌ Saga failed!" -ForegroundColor Red
+        Write-Host "X Saga failed!" -ForegroundColor Red
         $statusResponse.data | ConvertTo-Json -Depth 10
         break
     }
@@ -246,19 +246,19 @@ if ($paymentResponse.data -and $paymentResponse.data[0]) {
 Section "Demo Complete ✅"
 Write-Host ""
 Write-Host "What You Just Saw:" -ForegroundColor Green
-Write-Host "  ✓ User authentication (JWT tokens)" -ForegroundColor Cyan
-Write-Host "  ✓ Order placement triggering saga" -ForegroundColor Cyan
-Write-Host "  ✓ Saga orchestration (Order → Inventory → Payment)" -ForegroundColor Cyan
-Write-Host "  ✓ Distributed transaction coordination" -ForegroundColor Cyan
-Write-Host "  ✓ Inventory management & cache" -ForegroundColor Cyan
-Write-Host "  ✓ Payment processing & idempotency" -ForegroundColor Cyan
+Write-Host "  Check User authentication (JWT tokens)" -ForegroundColor Cyan
+Write-Host "  Check Order placement triggering saga" -ForegroundColor Cyan
+Write-Host "  Check Saga orchestration (Order to Inventory to Payment)" -ForegroundColor Cyan
+Write-Host "  Check Distributed transaction coordination" -ForegroundColor Cyan
+Write-Host "  Check Inventory management and cache" -ForegroundColor Cyan
+Write-Host "  Check Payment processing and idempotency" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Key Architecture Patterns Demonstrated:" -ForegroundColor Green
-Write-Host "  • Saga Orchestration - Managing distributed transactions" -ForegroundColor Gray
-Write-Host "  • Idempotency - Safe retries with deduplication" -ForegroundColor Gray
-Write-Host "  • Cache-Aside - Redis for inventory caching" -ForegroundColor Gray
-Write-Host "  • JWT Auth - Token-based API security" -ForegroundColor Gray
-Write-Host "  • Event-Driven - Kafka integration for async events" -ForegroundColor Gray
+Write-Host "  * Saga Orchestration - Managing distributed transactions" -ForegroundColor Gray
+Write-Host "  * Idempotency - Safe retries with deduplication" -ForegroundColor Gray
+Write-Host "  * Cache-Aside - Redis for inventory caching" -ForegroundColor Gray
+Write-Host "  * JWT Auth - Token-based API security" -ForegroundColor Gray
+Write-Host "  * Event-Driven - Kafka integration for async events" -ForegroundColor Gray
 Write-Host ""
 Write-Host "System Details:" -ForegroundColor Green
 Write-Host "  • Language: Go 1.21" -ForegroundColor Gray

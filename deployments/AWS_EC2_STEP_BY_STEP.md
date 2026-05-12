@@ -203,11 +203,8 @@ Status Checks should show: 2/2 checks passed
 ### 3.1 Windows (PowerShell)
 
 ```powershell
-# Step 1: Secure the key file
-icacls "C:\Users\YourUsername\Downloads\atlaspay-demo.pem" /inheritance:r /grant:r "%username%:F"
-
-# Step 2: Connect
-ssh -i "C:\Users\YourUsername\Downloads\atlaspay-demo.pem" ubuntu@54.123.45.67
+# Connect to your EC2 instance
+ssh -i "C:\Users\1552441\Documents\AtlasKPKP\AtlasKP.pem" ubuntu@52.23.219.80
 
 # Type 'yes' when asked "Are you sure you want to continue connecting?"
 ```
@@ -236,16 +233,10 @@ ssh -i /c/Users/YourUsername/Downloads/atlaspay-demo.pem ubuntu@54.123.45.67
 ```
 Welcome to Ubuntu 22.04 LTS (GNU/Linux 5.15.0-1234-aws x86_64)
 
- * Documentation:  https://help.ubuntu.com
- * Management:     https://landscape.canonical.com
- * Support:        https://ubuntu.com/advantage
-
-The programs included with the Ubuntu system are free software...
-
 ubuntu@ip-10-0-1-5:~$
 ```
 
-✅ **You're now inside the EC2 instance!**
+✅ **You're now inside the EC2 instance at 52.23.219.80!**
 
 ---
 
@@ -342,9 +333,9 @@ Expected output:
 
 ### 6.3 Test from Your Laptop
 
-```bash
-# Replace 54.123.45.67 with your EC2 public IP
-curl http://54.123.45.67:8080/health
+```powershell
+# Your EC2 public IP: 52.23.219.80
+curl http://52.23.219.80:8080/health
 ```
 
 Expected output:
@@ -420,23 +411,23 @@ docker compose up -d
 ### From Your Laptop:
 
 ```
-HTTP: http://54.123.45.67:8080
-API Health: http://54.123.45.67:8080/health
+HTTP: http://52.23.219.80:8080
+API Health: http://52.23.219.80:8080/health
 ```
 
 ### Test API Endpoints:
 
 ```bash
 # Health check
-curl http://54.123.45.67:8080/health
+curl http://52.23.219.80:8080/health
 
 # Create order (example)
-curl -X POST http://54.123.45.67:8080/orders \
+curl -X POST http://52.23.219.80:8080/orders \
   -H "Content-Type: application/json" \
   -d '{"user_id":"user123","total_amount":100.00}'
 
 # View orders
-curl http://54.123.45.67:8080/orders
+curl http://52.23.219.80:8080/orders
 ```
 
 ---
@@ -465,8 +456,8 @@ docker compose logs -f api --tail 100
 
 ### SSH Back Into EC2
 
-```bash
-ssh -i "path/to/atlaspay-demo.pem" ubuntu@54.123.45.67
+```powershell
+ssh -i "C:\Users\1552441\Documents\AtlasKPKP\AtlasKP.pem" ubuntu@52.23.219.80
 ```
 
 ### Restart EC2 Instance (from AWS Console)
@@ -663,19 +654,19 @@ When demoing to Harness team:
 
 ```bash
 # 1. SSH into EC2
-ssh -i key.pem ubuntu@YOUR_IP
+ssh -i "C:\Users\1552441\Documents\AtlasKPKP\AtlasKP.pem" ubuntu@52.23.219.80
 
 # 2. Show services running
 docker compose ps
 
 # 3. Show health endpoint
-curl http://localhost:8080/health | jq .
+curl http://localhost:8080/health
 
 # 4. Show logs
 docker compose logs -f api
 
-# 5. Test order creation (from your laptop)
-curl -X POST http://YOUR_IP:8080/orders \
+# 5. From your laptop - test order creation
+curl -X POST http://52.23.219.80:8080/orders \
   -H "Content-Type: application/json" \
   -d '{"user_id":"demo","amount":99.99}'
 
@@ -700,10 +691,20 @@ If something fails:
 
 ```
 ✅ EC2 instance running (free tier)
+   Instance IP: 52.23.219.80
+   
 ✅ All services deployed (Docker Compose)
-✅ App accessible from internet (public IP:8080)
+   - PostgreSQL, Redis, Kafka, Zookeeper, API Gateway
+   
+✅ App accessible from internet
+   Access: http://52.23.219.80:8080
+   Health: http://52.23.219.80:8080/health
+   
 ✅ Interview material ready (INTERVIEW_BREAKDOWN.md)
 ✅ Demo ready for Harness team!
+
+SSH Access:
+ssh -i "C:\Users\1552441\Documents\AtlasKPKP\AtlasKP.pem" ubuntu@52.23.219.80
 
 Cost: $0 (free tier, 12 months)
 ```
