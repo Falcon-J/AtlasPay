@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 // Role represents user roles for RBAC
@@ -60,6 +61,7 @@ func (j *JWTManager) GenerateTokenPair(userID, email string, role Role) (*TokenP
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.accessExpiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Subject:   userID,
+			ID:        uuid.New().String(),
 		},
 	}
 
@@ -78,6 +80,7 @@ func (j *JWTManager) GenerateTokenPair(userID, email string, role Role) (*TokenP
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.refreshExpiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Subject:   userID,
+			ID:        uuid.New().String(),
 		},
 	}
 
