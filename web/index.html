@@ -268,7 +268,12 @@
                 await fetch(`${API_BASE}/api/auth/register`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({email: email, password: pass, name: "Gamer"})
+                    body: JSON.stringify({
+                        email: email, 
+                        password: pass, 
+                        first_name: "Atlas", 
+                        last_name: "Gamer"
+                    })
                 });
 
                 // Login
