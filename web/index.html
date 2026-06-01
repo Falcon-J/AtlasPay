@@ -351,7 +351,7 @@
         }
 
         async function fetchGlobalStock() {
-            if (!jwtToken || !normalSku) return;
+            if (!jwtToken || !normalSku || isProcessing) return;
             try {
                 const res = await fetch(`${API_BASE}/api/inventory/${normalSku}`, {
                     headers: { 'Authorization': `Bearer ${jwtToken}` }
@@ -362,7 +362,7 @@
                         const available = data.item.quantity - data.item.reserved_qty;
                         if (inventoryCount !== available) {
                             inventoryCount = available;
-                            document.getElementById('inventory-el').textContent = inventoryCount;
+                            updateUI();
                         }
                     }
                 }
@@ -396,6 +396,11 @@
             nOrder.classList.remove('active');
             nInv.classList.add('active');
             log("SAGA: Inventory Reserved", 'info');
+            
+            // Sync Visual Deduct
+            inventoryCount--;
+            updateUI();
+            
             await sleep(400);
 
             // Step 3: Packet to Payment
@@ -418,12 +423,22 @@
                 
                 nInv.classList.add('active');
                 log("SAGA: Inventory Released (Rollback)", 'warn');
+                
+                // Sync Visual Rollback
+                inventoryCount++;
+                updateUI();
+                
                 await sleep(600);
                 nInv.classList.remove('active');
 
             } else {
                 nPay.classList.add('success');
                 log("SAGA: Payment Processed", 'success');
+                
+                // Sync Visual Revenue
+                revenue += 499;
+                updateUI();
+                
                 await sleep(800);
                 nPay.classList.remove('success');
             }
@@ -437,15 +452,11 @@
             const isGlitch = document.getElementById('glitch-toggle').checked;
             const sku = isGlitch ? glitchSku : normalSku;
             
-            // Visual deduct
-            inventoryCount--;
-            updateUI();
-
             // Run visual animation asynchronously so we don't block
             runSagaAnimation(isGlitch);
 
             try {
-                const res = await fetch(`${API_BASE}/api/orders`, {
+                await fetch(`${API_BASE}/api/orders`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -455,18 +466,8 @@
                         items: [{ sku: sku, quantity: 1 }]
                     })
                 });
-
-                if (res.ok && !isGlitch) {
-                    revenue += 499;
-                    updateUI();
-                } else if (isGlitch) {
-                    // Rollback visual
-                    inventoryCount++;
-                    updateUI();
-                }
             } catch(e) {
-                inventoryCount++;
-                updateUI();
+                log("[System] Order API Error.", "fail");
             }
         }
 
