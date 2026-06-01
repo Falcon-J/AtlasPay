@@ -325,6 +325,25 @@
             document.getElementById('revenue-el').textContent = revenue;
         }
 
+        async function fetchGlobalStock() {
+            if (!jwtToken) return;
+            try {
+                const res = await fetch(`${API_BASE}/api/inventory/CONSOLE-X`, {
+                    headers: { 'Authorization': `Bearer ${jwtToken}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data?.item?.quantity !== undefined) {
+                        const available = data.item.quantity - data.item.reserved_qty;
+                        if (inventoryCount !== available) {
+                            inventoryCount = available;
+                            document.getElementById('inventory-el').textContent = inventoryCount;
+                        }
+                    }
+                }
+            } catch(e) {}
+        }
+
         // Delay helper
         const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -461,6 +480,9 @@
                 }
             }
         }, 3000);
+
+        // Start Multiplayer Sync
+        setInterval(fetchGlobalStock, 1500);
 
         init();
     </script>
