@@ -8,6 +8,7 @@ import (
 	"github.com/atlaspay/platform/internal/common/errors"
 	"github.com/atlaspay/platform/internal/common/kafka"
 	"github.com/atlaspay/platform/internal/common/logger"
+	"github.com/atlaspay/platform/internal/common/metrics"
 	"github.com/atlaspay/platform/internal/common/saga"
 	"github.com/atlaspay/platform/pkg/events"
 )
@@ -79,12 +80,14 @@ func (s *Service) CreateOrder(ctx context.Context, userID string, req *CreateOrd
 			_ = s.FailOrder(ctx, order.ID)
 			return nil, errors.ErrInternalServer.WithDetails("failed to enqueue order workflow")
 		}
+		metrics.RecordOrder("created", order.TotalPrice)
 		return order, nil
 	}
 
 	// Trigger Saga in background
 	go s.executeOrderSaga(context.Background(), order)
 
+	metrics.RecordOrder("created", order.TotalPrice)
 	return order, nil
 }
 

@@ -157,6 +157,21 @@ func NewConsumerWithOptions(
 
 // Start starts consuming messages
 func (c *Consumer) Start(ctx context.Context) {
+	// Start a background goroutine to record lag metrics every 5 seconds
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				stats := c.reader.Stats()
+				metrics.RecordKafkaLag(c.topic, c.groupID, "0", stats.Lag)
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():

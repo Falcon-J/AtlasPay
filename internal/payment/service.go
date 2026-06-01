@@ -8,6 +8,7 @@ import (
 
 	"github.com/atlaspay/platform/internal/common/errors"
 	"github.com/atlaspay/platform/internal/common/logger"
+	"github.com/atlaspay/platform/internal/common/metrics"
 )
 
 // Service handles payment business logic
@@ -55,7 +56,9 @@ func (s *Service) processPaymentInternal(ctx context.Context, userID string, req
 	}
 
 	// Simulate payment processing (in production, call payment gateway)
+	startTime := time.Now()
 	success := s.simulatePaymentGateway(payment)
+	duration := time.Since(startTime)
 
 	if success {
 		if err := s.repo.UpdateStatus(ctx, payment.ID, PaymentCompleted, ""); err != nil {
@@ -68,6 +71,8 @@ func (s *Service) processPaymentInternal(ctx context.Context, userID string, req
 			Str("order_id", payment.OrderID).
 			Float64("amount", payment.Amount).
 			Msg("payment completed successfully")
+			
+		metrics.RecordPayment("success", payment.PaymentMethod, duration)
 	} else {
 		failureReason := "Payment declined by processor"
 		if err := s.repo.UpdateStatus(ctx, payment.ID, PaymentFailed, failureReason); err != nil {
@@ -82,6 +87,7 @@ func (s *Service) processPaymentInternal(ctx context.Context, userID string, req
 			Str("reason", failureReason).
 			Msg("payment failed")
 
+		metrics.RecordPayment("failed", payment.PaymentMethod, duration)
 		return payment, errors.ErrPaymentFailed.WithDetails(failureReason)
 	}
 
