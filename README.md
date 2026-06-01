@@ -20,9 +20,8 @@ A distributed order and payment platform built with Go, demonstrating saga orche
 Want to see the system in action? Run the demo:
 
 **For Interviews/Presentations:**
-- 🎯 **Recommended:** [Manual curl commands](./DEMO_MANUAL_CURL.md) - Copy & paste, full control
-- 📋 **Full Guide:** [DEMO_GUIDE.md](./DEMO_GUIDE.md) - Complete walkthrough with talking points
-- 🔧 **Automated:** `./demo-api.sh http://52.23.219.80:8080` (bash/WSL)
+- 📋 **Full Guide:** [DEMO_GUIDE.md](docs/runbooks/DEMO_GUIDE.md) - Complete walkthrough with manual curl commands
+- 🔧 **Automated:** `scripts/demo/demo-api.sh http://52.23.219.80:8080` (bash/WSL)
 
 The demo shows:
 - ✅ User authentication (JWT tokens)
@@ -127,9 +126,9 @@ docker-compose up -d
 ## 🎥 Demo & Learning Resources
 - **[Premium Dashboard](web/index.html)**: Visualize Saga states and system health.
 - **[User Story Scenarios](docs/USER_STORIES.md)**: Real-world business cases (Happy path vs Payment failure).
-- **[Local Deployment Notes](docs/FREE_DEPLOYMENT.md)**: Free/local options for validating and recording the system.
-- **[Current State](docs/CURRENT_STATE.md)**: Implemented behavior, validation targets, and production-hardening roadmap.
-- **[Performance Results](docs/PERFORMANCE_RESULTS.md)**: Template for measured throughput and latency evidence.
+- **[Cloud Deployment Notes](docs/deployment/CLOUD_DEPLOYMENT.md)**: EC2 setup and Docker Hub push instructions.
+- **[Local Deployment Notes](docs/deployment/LOCAL_DEPLOYMENT.md)**: Free/local options for validating and recording the system.
+- **[Architecture Deep Dive](docs/architecture/ARCHITECTURE_DEEP_DIVE.md)**: System design and domain breakdown.
 
 ## 📊 API Endpoints
 

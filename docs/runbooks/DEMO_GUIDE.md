@@ -1,14 +1,13 @@
 # AtlasPay - Live API Demo Guide
 
-**For Interviews at Harness (or any platform company)**
-
+**Live API Demonstration**
 This guide walks you through demonstrating the AtlasPay distributed payment system in action. Rather than showing a UI, we'll demonstrate the **actual system behavior** through live API calls.
 
 ---
 
 ## 🎯 Why This Demo Approach?
 
-Platform companies like Harness care about:
+Platform companies care about:
 - ✅ **Architecture decisions** - How you design distributed systems
 - ✅ **Problem solving** - Handling failures, retries, idempotency
 - ✅ **Technology knowledge** - Databases, caching, message queues
@@ -380,4 +379,4 @@ This demo proves you can:
 - ✅ Debug real issues
 - ✅ Explain complex concepts clearly
 
-Perfect for Harness interviews. Good luck! 🎯
+Perfect for demonstrating distributed systems. Good luck! 🎯

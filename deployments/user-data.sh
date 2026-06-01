@@ -33,23 +33,6 @@ cat > docker-compose.yml << 'EOF'
 version: "3.9"
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: atlaspay
-      POSTGRES_PASSWORD: atlaspay_secret
-      POSTGRES_DB: atlaspay
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U atlaspay"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
   redis:
     image: redis:7-alpine
     ports:
@@ -87,8 +70,6 @@ services:
   api:
     build: .
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
       kafka:
@@ -96,11 +77,12 @@ services:
     ports:
       - "8080:8080"
     environment:
-      DB_HOST: postgres
+      # Injected via Terraform templatefile
+      DB_HOST: ${split(":", db_host)[0]}
       DB_PORT: 5432
-      DB_USER: atlaspay
-      DB_PASSWORD: atlaspay_secret
-      DB_NAME: atlaspay
+      DB_USER: ${db_user}
+      DB_PASSWORD: ${db_password}
+      DB_NAME: ${db_name}
       DB_SSLMODE: disable
       
       REDIS_HOST: redis
