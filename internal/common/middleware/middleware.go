@@ -10,6 +10,7 @@ import (
 	"github.com/atlaspay/platform/internal/common/errors"
 	"github.com/atlaspay/platform/internal/common/logger"
 	"github.com/atlaspay/platform/internal/common/metrics"
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
 
@@ -37,7 +38,13 @@ func RequestLogger(next http.Handler) http.Handler {
 		next.ServeHTTP(wrapped, r)
 
 		duration := time.Since(start)
-		metrics.RecordHTTPRequest(r.Method, r.URL.Path, wrapped.status, duration)
+		
+		path := r.URL.Path
+		if routeCtx := chi.RouteContext(r.Context()); routeCtx != nil && routeCtx.RoutePattern() != "" {
+			path = routeCtx.RoutePattern()
+		}
+
+		metrics.RecordHTTPRequest(r.Method, path, wrapped.status, duration)
 
 		// Log request
 		logger.Info(ctx).
