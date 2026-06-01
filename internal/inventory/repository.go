@@ -281,3 +281,22 @@ func (r *Repository) invalidateCache(ctx context.Context, sku string) {
 		r.cache.Delete(ctx, inventoryCachePrefix+sku)
 	}
 }
+
+// UpdateStock adds or removes stock quantity directly
+func (r *Repository) UpdateStock(ctx context.Context, sku string, quantity int) error {
+	result, err := r.db.Exec(ctx, `
+		UPDATE inventory 
+		SET quantity = quantity + $1, updated_at = $2
+		WHERE sku = $3
+	`, quantity, time.Now(), sku)
+	if err != nil {
+		return err
+	}
+	
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("item %s not found", sku)
+	}
+	
+	r.invalidateCache(ctx, sku)
+	return nil
+}

@@ -27,6 +27,7 @@ func (h *Handler) Routes() chi.Router {
 	r.Post("/reserve", h.ReserveStock)
 	r.Post("/release", h.ReleaseStock)
 	r.Post("/commit", h.CommitStock)
+	r.Post("/restock", h.Restock)
 
 	return r
 }
@@ -151,4 +152,41 @@ func (h *Handler) CommitStock(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.OK(w, map[string]bool{"committed": true})
+}
+
+type RestockRequest struct {
+	SKU      string `json:"sku"`
+	Quantity int    `json:"quantity"`
+}
+
+// Restock handles adding inventory stock
+// @Summary Restock inventory
+// @Tags Inventory
+// @Accept json
+// @Produce json
+// @Param request body RestockRequest true "Restock details"
+// @Success 200 {object} response.Response
+// @Router /inventory/restock [post]
+func (h *Handler) Restock(w http.ResponseWriter, r *http.Request) {
+	var req RestockRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		errors.WriteError(w, errors.ErrBadRequest.WithDetails("invalid request body"))
+		return
+	}
+
+	if req.SKU == "" || req.Quantity <= 0 {
+		errors.WriteError(w, errors.ErrBadRequest.WithDetails("sku and valid quantity required"))
+		return
+	}
+
+	if err := h.service.RestockItem(r.Context(), req.SKU, req.Quantity); err != nil {
+		if appErr, ok := err.(*errors.AppError); ok {
+			errors.WriteError(w, appErr)
+			return
+		}
+		errors.WriteError(w, errors.ErrInternalServer)
+		return
+	}
+
+	response.OK(w, map[string]bool{"restocked": true})
 }
