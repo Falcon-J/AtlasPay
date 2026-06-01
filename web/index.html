@@ -208,7 +208,7 @@
 <body>
 
     <header>
-        <div class="logo">AtlasPay Saga Tycoon</div>
+        <div class="logo">AtlasPay Saga Tycoon <span id="store-id-el" style="color: var(--muted); font-size: 0.9rem; font-weight: normal; margin-left: 10px;"></span></div>
         <div class="score-board">
             <div>Revenue: $<span id="revenue-el">0</span></div>
             <div>Inventory: <span id="inventory-el" style="color: var(--warning);">10</span></div>
@@ -279,6 +279,9 @@
         const API_BASE = (isLocalHost || isFileProtocol) ? 'http://localhost:8080' : window.location.origin;
         
         let jwtToken = null;
+        let storeId = "";
+        let normalSku = "";
+        let glitchSku = "";
         let inventoryCount = 10;
         let revenue = 0;
         let isProcessing = false; // Prevent overlapping animations for clarity
@@ -312,7 +315,29 @@
                 const data = await res.json();
                 if(data?.data?.access_token) {
                     jwtToken = data.data.access_token;
-                    log("[System] Connected to Backend. Store is open!", 'success');
+                    
+                    // Generate Unique Store SKUs
+                    if (data.data.user && data.data.user.id) {
+                        storeId = data.data.user.id.substring(0, 8);
+                    } else {
+                        storeId = "TEST-123";
+                    }
+                    normalSku = "CONSOLE-" + storeId;
+                    glitchSku = "FAIL-" + storeId;
+                    
+                    document.getElementById('store-id-el').textContent = `[Store ID: ${storeId}]`;
+                    log(`[System] Connected to Backend. Store ID: ${storeId}`, 'success');
+                    
+                    // Provision Initial Store Inventory via Restock
+                    await fetch(`${API_BASE}/api/inventory/restock`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${jwtToken}`
+                        },
+                        body: JSON.stringify({ sku: normalSku, quantity: 10 })
+                    });
+                    
                     updateUI();
                 }
             } catch(e) {
@@ -326,9 +351,9 @@
         }
 
         async function fetchGlobalStock() {
-            if (!jwtToken) return;
+            if (!jwtToken || !normalSku) return;
             try {
-                const res = await fetch(`${API_BASE}/api/inventory/CONSOLE-X`, {
+                const res = await fetch(`${API_BASE}/api/inventory/${normalSku}`, {
                     headers: { 'Authorization': `Bearer ${jwtToken}` }
                 });
                 if (res.ok) {
@@ -407,10 +432,10 @@
         }
 
         async function buyConsole(isBot = false) {
-            if(!jwtToken || inventoryCount <= 0 || isProcessing) return;
+            if(!jwtToken || inventoryCount <= 0 || isProcessing || !normalSku) return;
 
             const isGlitch = document.getElementById('glitch-toggle').checked;
-            const sku = isGlitch ? 'FAIL-PAYMENT-001' : 'CONSOLE-X';
+            const sku = isGlitch ? glitchSku : normalSku;
             
             // Visual deduct
             inventoryCount--;
@@ -461,7 +486,7 @@
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${jwtToken}`
                     },
-                    body: JSON.stringify({ sku: 'CONSOLE-X', quantity: 10 })
+                    body: JSON.stringify({ sku: normalSku, quantity: 10 })
                 });
 
                 inventoryCount += 10;

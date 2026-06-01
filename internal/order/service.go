@@ -4,6 +4,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"strings"
 
 	"github.com/atlaspay/platform/internal/common/errors"
 	"github.com/atlaspay/platform/internal/common/kafka"
@@ -158,7 +159,7 @@ func (s *Service) executeOrderSaga(ctx context.Context, order *Order) error {
 			SKU:      item.SKU,
 			Quantity: item.Quantity,
 		}
-		if item.SKU == "FAIL-PAYMENT-001" {
+		if strings.HasPrefix(item.SKU, "FAIL-") {
 			sagaData.IdempotencyKey = "FAIL-" + order.ID
 		}
 	}
