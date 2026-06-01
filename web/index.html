@@ -238,7 +238,10 @@
     </main>
 
     <script>
-        const API_BASE = (window.location.port === '5500' || window.location.port === '5501') ? 'http://localhost:8080' : window.location.origin;
+        let API_BASE = window.location.origin;
+        if (window.location.protocol === 'file:' || window.location.port === '5500' || window.location.port === '5501' || API_BASE === 'null') {
+            API_BASE = 'http://localhost:8080';
+        }
         let jwtToken = null;
         let inventoryCount = 500;
         let score = 0;
