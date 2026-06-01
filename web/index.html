@@ -2,789 +2,385 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#020408">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>AtlasPay | Real-Time Payment Protection</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AtlasPay | Black Friday Console Drop</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #020408;
-            --surface: #0b1018;
-            --surface-2: #111826;
-            --border: rgba(255, 255, 255, 0.08);
-            --text: #eef3f8;
-            --muted: #8c96a3;
-            --primary: #58a6ff;
-            --primary-2: #7dd3fc;
-            --success: #2ea043;
-            --warning: #d29922;
-            --danger: #f85149;
-            --accent: #bc8cff;
-            --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+            --bg: #050505;
+            --surface: #111111;
+            --border: #222222;
+            --text: #ffffff;
+            --muted: #888888;
+            --primary: #0070f3;
+            --success: #00e676;
+            --danger: #ff1744;
+            --warning: #ffea00;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            -webkit-tap-highlight-color: transparent;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
         body {
-            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
             color: var(--text);
-            background:
-                radial-gradient(circle at top left, rgba(88, 166, 255, 0.18), transparent 36%),
-                radial-gradient(circle at top right, rgba(188, 140, 255, 0.12), transparent 34%),
-                linear-gradient(180deg, #020408 0%, #060912 48%, #03050a 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
-        .container {
-            max-width: 1280px;
-            margin: 0 auto;
-            padding: 24px 18px 48px;
-        }
-
+        /* Header */
         header {
+            padding: 20px 40px;
+            border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 16px;
-            flex-wrap: wrap;
-            margin-bottom: 28px;
+            background: rgba(17, 17, 17, 0.8);
+            backdrop-filter: blur(10px);
         }
 
-        .brand {
+        .logo { font-weight: 800; font-size: 1.2rem; letter-spacing: -0.05em; }
+        .score-board { display: flex; gap: 20px; font-weight: 600; }
+        .score-board span { color: var(--success); }
+
+        /* Main Game Area */
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 0;
+        }
+
+        .game-panel {
+            padding: 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at center, #1a1a1a 0%, var(--bg) 100%);
+        }
+
+        .product-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            max-width: 400px;
+            width: 100%;
+            transition: transform 0.1s ease;
+        }
+
+        .product-image {
+            width: 160px;
+            height: 160px;
+            background: linear-gradient(135deg, #333, #111);
+            border-radius: 20px;
+            margin: 0 auto 30px;
             display: flex;
             align-items: center;
-            gap: 14px;
-        }
-
-        .logo {
-            width: 46px;
-            height: 46px;
-            border-radius: 14px;
-            display: grid;
-            place-items: center;
-            background: linear-gradient(135deg, #58a6ff 0%, #bc8cff 100%);
-            box-shadow: 0 18px 45px rgba(88, 166, 255, 0.22);
-            font-weight: 800;
-            color: white;
-        }
-
-        h1 {
-            font-size: clamp(1.6rem, 3vw, 2.4rem);
-            line-height: 1;
-            letter-spacing: -0.04em;
-        }
-
-        .subtitle {
-            margin-top: 6px;
-            color: var(--muted);
-            font-size: 0.98rem;
-        }
-
-        .status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 16px;
+            justify-content: center;
+            font-size: 4rem;
             border: 1px solid var(--border);
-            border-radius: 999px;
-            background: rgba(11, 16, 24, 0.75);
-            backdrop-filter: blur(12px);
-            color: var(--muted);
-            font-size: 0.82rem;
-            font-weight: 700;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
         }
 
-        .dot {
-            width: 9px;
-            height: 9px;
-            border-radius: 999px;
-            background: var(--warning);
-            box-shadow: 0 0 0 0 rgba(210, 153, 34, 0.35);
-            animation: pulse 2s infinite;
-        }
-
-        .dot.live {
-            background: var(--success);
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(210, 153, 34, 0.35); }
-            70% { box-shadow: 0 0 0 12px rgba(210, 153, 34, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(210, 153, 34, 0); }
-        }
-
-        .hero {
-            display: grid;
-            gap: 18px;
-            grid-template-columns: 1fr;
-            margin-bottom: 18px;
-        }
-
-        .panel {
-            background: rgba(11, 16, 24, 0.86);
-            border: 1px solid var(--border);
-            border-radius: 28px;
-            box-shadow: var(--shadow);
-            backdrop-filter: blur(16px);
-        }
-
-        .hero-panel {
-            padding: 28px;
-        }
-
-        .eyebrow {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 14px;
-            color: var(--primary-2);
-            font-size: 0.8rem;
+        h1 { font-size: 2rem; margin-bottom: 10px; font-weight: 800; letter-spacing: -0.03em; }
+        .price { font-size: 1.2rem; color: var(--muted); margin-bottom: 30px; }
+        
+        .inventory {
+            font-size: 3rem;
             font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.16em;
+            color: var(--warning);
+            margin-bottom: 30px;
+            text-shadow: 0 0 20px rgba(255, 234, 0, 0.2);
         }
 
-        .hero-title {
-            font-size: clamp(2rem, 5vw, 4rem);
-            line-height: 1.02;
-            letter-spacing: -0.06em;
-            max-width: 12ch;
-        }
-
-        .hero-copy {
-            margin-top: 16px;
-            max-width: 72ch;
-            color: #d5deea;
-            font-size: 1.02rem;
-            line-height: 1.7;
-        }
-
-        .hero-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 14px;
-            margin-top: 22px;
-        }
-
-        .metric {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 18px;
-            padding: 16px;
-        }
-
-        .metric-label {
-            color: var(--muted);
-            font-size: 0.78rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-        }
-
-        .metric-value {
-            margin-top: 10px;
-            font-size: 1.2rem;
-            font-weight: 800;
-            letter-spacing: -0.04em;
-        }
-
-        .page-grid {
-            display: grid;
-            grid-template-columns: 1.25fr 0.75fr;
-            gap: 18px;
-            align-items: start;
-        }
-
-        @media (max-width: 960px) {
-            .page-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .section {
-            padding: 22px;
-        }
-
-        .section-title {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 18px;
-        }
-
-        .section-title h2 {
-            font-size: 1.15rem;
-            letter-spacing: -0.03em;
-        }
-
-        .small-note {
-            color: var(--muted);
-            font-size: 0.92rem;
-            line-height: 1.6;
-        }
-
-        .example-box {
-            background: linear-gradient(180deg, rgba(88, 166, 255, 0.09), rgba(11, 16, 24, 0.45));
-            border: 1px solid rgba(88, 166, 255, 0.16);
-            border-radius: 22px;
+        .buy-btn {
+            background: var(--text);
+            color: var(--bg);
+            border: none;
+            border-radius: 12px;
             padding: 20px;
-            margin-bottom: 18px;
-        }
-
-        .example-name {
+            width: 100%;
             font-size: 1.2rem;
             font-weight: 800;
-            letter-spacing: -0.04em;
-            margin-bottom: 4px;
-        }
-
-        .example-desc {
-            color: #d5deea;
-            line-height: 1.7;
-        }
-
-        .facts {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px;
-            margin-top: 16px;
-        }
-
-        .fact {
-            padding: 14px;
-            border-radius: 18px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .fact-label {
-            color: var(--muted);
-            font-size: 0.76rem;
-            font-weight: 800;
-            letter-spacing: 0.08em;
+            cursor: pointer;
+            transition: all 0.1s ease;
             text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
-        .fact-value {
-            margin-top: 8px;
-            font-weight: 800;
-            font-size: 1.03rem;
-        }
+        .buy-btn:active { transform: scale(0.96); }
+        .buy-btn:disabled { background: var(--muted); cursor: not-allowed; transform: none; }
 
-        .flow {
-            display: grid;
-            gap: 14px;
-        }
-
-        .step {
-            display: grid;
-            grid-template-columns: 56px 1fr;
-            gap: 14px;
-            padding: 18px;
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .step-num {
-            width: 56px;
-            height: 56px;
-            border-radius: 18px;
-            display: grid;
-            place-items: center;
-            font-size: 1.1rem;
-            font-weight: 900;
-            color: white;
-            background: linear-gradient(135deg, #58a6ff, #bc8cff);
-        }
-
-        .step-title {
-            font-size: 1rem;
-            font-weight: 800;
-            margin-bottom: 6px;
-        }
-
-        .step-text {
-            color: var(--muted);
-            line-height: 1.7;
-            font-size: 0.95rem;
-        }
-
-        .badge-row {
+        /* Sidebar Log */
+        .sidebar {
+            background: var(--surface);
+            border-left: 1px solid var(--border);
             display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 12px;
+            flex-direction: column;
         }
 
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
-            border-radius: 999px;
-            font-size: 0.78rem;
-            font-weight: 800;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            background: rgba(255, 255, 255, 0.04);
+        .toggles {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
         }
 
-        .badge.success {
-            color: #98f0b4;
-            border-color: rgba(46, 160, 67, 0.35);
-            background: rgba(46, 160, 67, 0.12);
-        }
-
-        .badge.warning {
-            color: #ffd17a;
-            border-color: rgba(210, 153, 34, 0.35);
-            background: rgba(210, 153, 34, 0.12);
-        }
-
-        .badge.info {
-            color: #b7d8ff;
-            border-color: rgba(88, 166, 255, 0.35);
-            background: rgba(88, 166, 255, 0.12);
-        }
-
-        .live-stack {
-            display: grid;
-            gap: 14px;
-        }
-
-        .live-summary {
-            display: grid;
-            gap: 10px;
-        }
-
-        .summary-row {
+        .toggle-row {
             display: flex;
             justify-content: space-between;
-            gap: 16px;
-            padding: 12px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            font-size: 0.94rem;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            font-weight: 500;
         }
 
-        .summary-row:last-child {
-            border-bottom: none;
+        /* Switch UI */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
         }
-
-        .summary-key {
-            color: var(--muted);
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--border);
+            transition: .3s; border-radius: 34px;
         }
-
-        .summary-value {
-            font-family: 'JetBrains Mono', monospace;
-            text-align: right;
-            color: #dce8f5;
+        .slider:before {
+            position: absolute; content: "";
+            height: 18px; width: 18px; left: 3px; bottom: 3px;
+            background-color: white; transition: .3s; border-radius: 50%;
         }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(20px); }
 
-        .timeline {
-            background: rgba(0, 0, 0, 0.22);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 20px;
-            padding: 16px;
-            max-height: 340px;
+        .log-container {
+            flex: 1;
+            padding: 20px;
             overflow-y: auto;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.83rem;
-            line-height: 1.7;
+            font-size: 0.8rem;
+            background: #000;
         }
 
-        .line {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 8px;
-            align-items: flex-start;
+        .log-entry {
+            margin-bottom: 10px;
+            line-height: 1.4;
+            animation: fadeIn 0.3s ease;
         }
 
-        .time {
-            color: var(--muted);
-            flex-shrink: 0;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .message.ok { color: #98f0b4; }
-        .message.info { color: #b7d8ff; }
-        .message.warn { color: #ffd17a; }
-        .message.err { color: #ff9a93; }
+        .log-time { color: var(--muted); margin-right: 8px; }
+        .log-success { color: var(--success); }
+        .log-fail { color: var(--danger); }
+        .log-info { color: var(--primary); }
+        .log-warn { color: var(--warning); }
 
-        .cta {
-            margin-top: 18px;
-            display: grid;
-            gap: 10px;
-        }
-
-        .btn {
-            appearance: none;
-            border: none;
-            border-radius: 16px;
-            padding: 14px 18px;
-            font-weight: 800;
-            font-size: 0.93rem;
-            cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-        }
-
-        .btn:hover {
-            transform: translateY(-1px);
-        }
-
-        .btn-primary {
-            color: #071018;
-            background: linear-gradient(135deg, #7dd3fc 0%, #58a6ff 100%);
-            box-shadow: 0 16px 34px rgba(88, 166, 255, 0.22);
-        }
-
-        .btn-secondary {
-            color: var(--text);
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .muted-link {
-            color: var(--muted);
-            text-decoration: none;
-            font-weight: 700;
-        }
-
-        .footer {
-            margin-top: 22px;
-            color: var(--muted);
-            font-size: 0.9rem;
-            text-align: center;
-        }
-
-        @media (max-width: 760px) {
-            .hero-panel,
-            .section {
-                padding: 18px;
-            }
-
-            .hero-grid,
-            .facts {
-                grid-template-columns: 1fr;
-            }
-
-            .step {
-                grid-template-columns: 1fr;
-            }
-
-            .step-num {
-                width: 46px;
-                height: 46px;
-                border-radius: 14px;
-            }
-        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <div class="brand">
-                <div class="logo">A</div>
-                <div>
-                    <h1>AtlasPay</h1>
-                    <div class="subtitle">A simple view of how payment safety works in real time</div>
+
+    <header>
+        <div class="logo">AtlasPay Mini-Game</div>
+        <div class="score-board">
+            <div>Auth: <span id="auth-status" style="color:var(--muted)">Connecting...</span></div>
+            <div>Score: <span id="score">0</span></div>
+        </div>
+    </header>
+
+    <main>
+        <div class="game-panel">
+            <div class="product-card" id="card">
+                <div class="product-image">🎮</div>
+                <h1>Atlas Console</h1>
+                <div class="price">$499.00 USD</div>
+                
+                <div style="font-size: 0.9rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px;">Stock Remaining</div>
+                <div class="inventory" id="inventory">500</div>
+                
+                <button class="buy-btn" id="buy-btn" onclick="buyConsole()">MASH TO BUY</button>
+                <div style="margin-top: 15px; font-size: 0.8rem; color: var(--muted);">Spam click to test Idempotency!</div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="toggles">
+                <div class="toggle-row">
+                    <span>🤖 AI Bot Competitors</span>
+                    <label class="switch">
+                        <input type="checkbox" id="bot-toggle" onchange="toggleBots()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-row">
+                    <span>💥 Network Glitch (Fails Payment)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="glitch-toggle">
+                        <span class="slider"></span>
+                    </label>
                 </div>
             </div>
-            <div class="status-pill">
-                <span id="status-dot" class="dot"></span>
-                <span id="status-text">Checking live service</span>
+            
+            <div class="log-container" id="terminal">
+                <div class="log-entry"><span class="log-time">[SYSTEM]</span><span class="log-info">Backend initialized. Ready for drop.</span></div>
             </div>
-        </header>
-
-        <div class="hero">
-            <section class="panel hero-panel">
-                <div class="eyebrow">Real-time protection demo</div>
-                <h2 class="hero-title">Payment flows that protect the customer, not just process the payment.</h2>
-                <p class="hero-copy">
-                    This page shows a real purchase as a story non-technical people can follow. A customer places an order, inventory is checked, payment is processed, and the system records the final result. If something fails along the way, AtlasPay rolls back the earlier step so the customer is not charged for a broken transaction.
-                </p>
-
-                <div class="hero-grid">
-                    <div class="metric">
-                        <div class="metric-label">Example order</div>
-                        <div class="metric-value">5 Premium Licenses</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-label">Total amount</div>
-                        <div class="metric-value">$499.95</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-label">Typical flow time</div>
-                        <div class="metric-value">About 1 to 2 seconds</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-label">Protection level</div>
-                        <div class="metric-value">Automatic rollback</div>
-                    </div>
-                </div>
-            </section>
         </div>
-
-        <div class="page-grid">
-            <section class="panel section">
-                <div class="section-title">
-                    <h2>What Happens During One Purchase</h2>
-                    <span class="small-note">The system shows each step as it happens.</span>
-                </div>
-
-                <div class="example-box">
-                    <div class="example-name">Customer buys 5 Premium Licenses</div>
-                    <p class="example-desc">
-                        Price per item is <strong>$99.99</strong>. The full order is <strong>$499.95</strong>. AtlasPay uses this simple example to show how a real payment stays safe from duplicate charges, overselling, and partial failures.
-                    </p>
-                    <div class="facts">
-                        <div class="fact">
-                            <div class="fact-label">Items</div>
-                            <div class="fact-value">5</div>
-                        </div>
-                        <div class="fact">
-                            <div class="fact-label">Unit price</div>
-                            <div class="fact-value">$99.99</div>
-                        </div>
-                        <div class="fact">
-                            <div class="fact-label">Order total</div>
-                            <div class="fact-value">$499.95</div>
-                        </div>
-                        <div class="fact">
-                            <div class="fact-label">Why it matters</div>
-                            <div class="fact-value">No double charge</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flow">
-                    <div class="step">
-                        <div class="step-num" id="step-1">1</div>
-                        <div>
-                            <div class="step-title">Order created</div>
-                            <div class="step-text">
-                                The system writes down the purchase request and gives it a unique identifier. That means if a customer taps submit twice or the internet blips, AtlasPay can recognize the same request and avoid charging twice.
-                            </div>
-                            <div class="badge-row">
-                                <span class="badge info">Duplicate prevention</span>
-                                <span class="badge">Unique order ID</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="step">
-                        <div class="step-num" id="step-2">2</div>
-                        <div>
-                            <div class="step-title">Inventory reserved</div>
-                            <div class="step-text">
-                                Before any card is charged, AtlasPay checks that all 5 licenses are available. If the stock is missing, the order stops here. This protects the customer from paying for something the store cannot deliver.
-                            </div>
-                            <div class="badge-row">
-                                <span class="badge warning">Overselling prevention</span>
-                                <span class="badge">Stock reserved first</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="step">
-                        <div class="step-num" id="step-3">3</div>
-                        <div>
-                            <div class="step-title">Payment charged</div>
-                            <div class="step-text">
-                                The payment service tries to charge <strong>$499.95</strong>. If the card is declined or a service goes down, AtlasPay automatically reverses the earlier reservation so the customer does not end up in a half-finished state.
-                            </div>
-                            <div class="badge-row">
-                                <span class="badge success">Automatic rollback</span>
-                                <span class="badge">No partial checkout</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="step">
-                        <div class="step-num" id="step-4">4</div>
-                        <div>
-                            <div class="step-title">Order completed</div>
-                            <div class="step-text">
-                                When all steps succeed, the order is finalized and stored permanently. That gives the business a reliable record and gives the customer a clear final confirmation.
-                            </div>
-                            <div class="badge-row">
-                                <span class="badge info">Permanent record</span>
-                                <span class="badge success">Completed safely</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <aside class="live-stack">
-                <section class="panel section">
-                    <div class="section-title">
-                        <h2>What The Customer Is Protected From</h2>
-                    </div>
-                    <div class="live-summary">
-                        <div class="summary-row">
-                            <span class="summary-key">Two clicks on submit</span>
-                            <span class="summary-value">Only one charge</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="summary-key">Stock runs out</span>
-                            <span class="summary-value">Order stops early</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="summary-key">Payment service fails</span>
-                            <span class="summary-value">Inventory returns</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="summary-key">Need to investigate</span>
-                            <span class="summary-value">Every step traced</span>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="panel section">
-                    <div class="section-title">
-                        <h2>Live Activity</h2>
-                        <button class="btn btn-secondary" onclick="refreshLiveData()">Refresh</button>
-                    </div>
-
-                    <div class="timeline" id="timeline">
-                        <div class="line"><span class="time">[system]</span><span class="message info">Waiting for the first live order...</span></div>
-                    </div>
-
-                    <div class="cta">
-                        <button class="btn btn-primary" onclick="runDemoPulse()">Show Demo Story</button>
-                        <a class="muted-link" href="/README.md" target="_blank" rel="noreferrer">Open the demo guide and curl walkthrough</a>
-                    </div>
-                </section>
-
-                <section class="panel section">
-                    <div class="section-title">
-                        <h2>How Fast And Reliable</h2>
-                    </div>
-                    <div class="live-summary">
-                        <div class="summary-row">
-                            <span class="summary-key">Typical response</span>
-                            <span class="summary-value">1-2 seconds</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="summary-key">Availability target</span>
-                            <span class="summary-value">99.9%</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="summary-key">Storage durability</span>
-                            <span class="summary-value">Permanent</span>
-                        </div>
-                        <div class="summary-row">
-                            <span class="summary-key">Concurrency</span>
-                            <span class="summary-value">10,000+</span>
-                        </div>
-                    </div>
-                </section>
-            </aside>
-        </div>
-
-        <div class="footer">
-            AtlasPay runs on Go, PostgreSQL, and Redis. The demo is served from the same EC2 host as the API, so there is no cluster setup button and no endpoint configuration step.
-        </div>
-    </div>
+    </main>
 
     <script>
-        const apiBase = '';
-        let liveToken = null;
-        let refreshTimer = null;
+        const API_BASE = window.location.origin;
+        let jwtToken = null;
+        let inventoryCount = 500;
+        let score = 0;
+        let botInterval = null;
 
-        function stamp() {
-            return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const terminal = document.getElementById('terminal');
+        const inventoryEl = document.getElementById('inventory');
+        const scoreEl = document.getElementById('score');
+
+        function log(message, type = 'info') {
+            const time = new Date().toLocaleTimeString([], {hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit', fractionalSecondDigits: 2});
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            div.innerHTML = `<span class="log-time">[${time}]</span><span class="log-${type}">${message}</span>`;
+            terminal.appendChild(div);
+            terminal.scrollTop = terminal.scrollHeight;
         }
 
-        function addLine(type, text) {
-            const timeline = document.getElementById('timeline');
-            const row = document.createElement('div');
-            row.className = 'line';
-            row.innerHTML = `<span class="time">[${stamp()}]</span><span class="message ${type}">${text}</span>`;
-            timeline.prepend(row);
-        }
-
-        function setStatus(live, label) {
-            const dot = document.getElementById('status-dot');
-            dot.className = live ? 'dot live' : 'dot';
-            document.getElementById('status-text').textContent = label;
-        }
-
-        async function checkHealth() {
+        async function initAuth() {
+            const email = `gamer-${Date.now()}@atlaspay.local`;
+            const pass = "Password123";
+            
+            log(`Registering session for ${email}...`, 'info');
+            
             try {
-                const response = await fetch(`${apiBase}/health`);
-                if (response.ok) {
-                    setStatus(true, 'Live service ready');
-                    return true;
-                }
-            } catch (error) {
-                // fall through
-            }
-            setStatus(false, 'Waiting for service');
-            return false;
-        }
-
-        async function refreshLiveData() {
-            await checkHealth();
-            try {
-                const response = await fetch(`${apiBase}/api/orders?page=1&page_size=6`, {
-                    headers: liveToken ? { 'Authorization': `Bearer ${liveToken}` } : {}
+                // Register
+                await fetch(`${API_BASE}/api/auth/register`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email: email, password: pass, name: "Gamer"})
                 });
 
-                if (!response.ok) {
-                    addLine('warn', 'Live order feed is not available yet.');
-                    return;
+                // Login
+                const res = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email: email, password: pass})
+                });
+                
+                const data = await res.json();
+                if(data && data.data && data.data.access_token) {
+                    jwtToken = data.data.access_token;
+                    document.getElementById('auth-status').textContent = 'Online';
+                    document.getElementById('auth-status').style.color = 'var(--success)';
+                    log("Connected to API Gateway. JWT secured.", 'success');
+                } else {
+                    throw new Error("Failed to get token");
                 }
-
-                const payload = await response.json();
-                const orders = payload?.data?.orders || [];
-
-                if (!orders.length) {
-                    addLine('info', 'No recent orders yet. The next live transaction will appear here.');
-                    return;
-                }
-
-                const latest = orders[0];
-                document.getElementById('step-1').style.background = 'linear-gradient(135deg, #58a6ff, #bc8cff)';
-                document.getElementById('step-2').style.background = 'linear-gradient(135deg, #2ea043, #58a6ff)';
-                document.getElementById('step-3').style.background = 'linear-gradient(135deg, #d29922, #58a6ff)';
-                document.getElementById('step-4').style.background = 'linear-gradient(135deg, #2ea043, #7dd3fc)';
-
-                addLine('ok', `Latest order ${latest.id.slice(-8).toUpperCase()} is ${latest.status.toLowerCase()}.`);
-                addLine('info', 'Each step is recorded so the customer can see exactly what happened.');
-            } catch (error) {
-                addLine('err', 'Could not load live data right now.');
+            } catch (err) {
+                log("Backend connection failed. Is Docker running?", 'fail');
             }
         }
 
-        function runDemoPulse() {
-            addLine('info', 'Demo story: customer places 5 licenses at $99.99 each.');
-            addLine('ok', 'Order created with a unique protection key.');
-            addLine('ok', 'Inventory reserved before payment is charged.');
-            addLine('ok', 'Payment of $499.95 processed or rolled back safely.');
-            addLine('ok', 'Final order record saved permanently.');
+        async function buyConsole(isBot = false) {
+            if(!jwtToken || inventoryCount <= 0) return;
+
+            const isGlitch = document.getElementById('glitch-toggle').checked;
+            const sku = isGlitch ? 'FAIL-PAYMENT-001' : 'CONSOLE-X';
+            
+            // Random idempotency key (1 per click, prevents double charge if retried)
+            const idemKey = `idem-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+
+            if(!isBot) {
+                document.getElementById('card').style.transform = 'scale(0.98)';
+                setTimeout(() => document.getElementById('card').style.transform = 'none', 100);
+            }
+
+            try {
+                // Instantly decrement for visual feel, if it fails we rollback visually too
+                inventoryCount--;
+                updateCounters();
+                
+                const res = await fetch(`${API_BASE}/api/orders`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${jwtToken}`
+                    },
+                    body: JSON.stringify({
+                        customer_id: isBot ? 'bot' : 'player',
+                        items: [{ product_id: sku, quantity: 1, unit_price: 499.00 }],
+                        payment_method: 'credit_card',
+                        idempotency_key: idemKey
+                    })
+                });
+
+                const data = await res.json();
+                const orderId = data?.data?.id;
+
+                if(res.ok && orderId) {
+                    const prefix = isBot ? "[BOT] " : "[YOU] ";
+                    log(`${prefix}Order ${orderId.slice(-6)}: Created`, 'info');
+                    
+                    if(isGlitch) {
+                        log(`${prefix}Order ${orderId.slice(-6)}: SAGA - Payment Failed!`, 'fail');
+                        log(`${prefix}Order ${orderId.slice(-6)}: SAGA - Inventory Rollback`, 'warn');
+                        // Rollback visual inventory
+                        inventoryCount++;
+                        updateCounters();
+                    } else {
+                        log(`${prefix}Order ${orderId.slice(-6)}: Payment Processed`, 'success');
+                        if(!isBot) {
+                            score++;
+                            updateCounters();
+                        }
+                    }
+                }
+            } catch (e) {
+                inventoryCount++; // Rollback on network crash
+                updateCounters();
+                log("Network error", 'fail');
+            }
         }
 
-        async function autoStartDemo() {
-            setStatus(false, 'Checking live service');
-            await checkHealth();
-            await refreshLiveData();
-            clearInterval(refreshTimer);
-            refreshTimer = setInterval(refreshLiveData, 10000);
+        function toggleBots() {
+            const enabled = document.getElementById('bot-toggle').checked;
+            if(enabled) {
+                log("AI Bots activated. They are buying stock fast!", 'warn');
+                botInterval = setInterval(() => {
+                    buyConsole(true);
+                }, 400); // Bots buy every 400ms
+            } else {
+                log("AI Bots deactivated.", 'info');
+                clearInterval(botInterval);
+            }
         }
 
-        window.addEventListener('load', autoStartDemo);
+        function updateCounters() {
+            inventoryEl.textContent = inventoryCount;
+            scoreEl.textContent = score;
+            if(inventoryCount <= 0) {
+                inventoryEl.textContent = "SOLD OUT";
+                inventoryEl.style.color = "var(--danger)";
+                document.getElementById('buy-btn').disabled = true;
+                if(botInterval) clearInterval(botInterval);
+                log("Inventory depleted. Drop over.", 'fail');
+            }
+        }
+
+        // Boot
+        initAuth();
+
     </script>
 </body>
 </html>
