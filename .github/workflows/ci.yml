@@ -52,8 +52,23 @@ jobs:
       - name: Validate Docker Compose
         run: docker compose config --quiet
 
-      - name: Start backend stack
-        run: docker compose up -d --build postgres redis zookeeper kafka api-gateway
+      - name: Start backend infrastructure
+        run: docker compose up -d --wait postgres redis zookeeper kafka
+
+      - name: Provision Kafka topics
+        run: |
+          for TOPIC in atlaspay.orders atlaspay.dlq; do
+            docker compose exec -T kafka kafka-topics \
+              --bootstrap-server localhost:9092 \
+              --create \
+              --if-not-exists \
+              --topic "$TOPIC" \
+              --partitions 1 \
+              --replication-factor 1
+          done
+
+      - name: Start API gateway
+        run: docker compose up -d --build api-gateway
 
       - name: Wait for backend health
         shell: bash
