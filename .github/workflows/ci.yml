@@ -1,122 +1,118 @@
 name: AtlasPay CI
 
 on:
-push:
-branches: ["main"]
-pull_request:
-branches: ["main"]
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
 
 jobs:
-build-and-test:
-runs-on: ubuntu-latest
-timeout-minutes: 15
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
-```
-steps:
-  - name: Checkout
-    uses: actions/checkout@v4
-    with:
-      fetch-depth: 2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
-  - name: Check committed whitespace
-    shell: bash
-    run: |
-      if git rev-parse HEAD^ >/dev/null 2>&1; then
-        git diff --check HEAD^..HEAD
-      else
-        git show --check --format= --no-ext-diff HEAD
-      fi
+      - name: Check committed whitespace
+        shell: bash
+        run: |
+          if git rev-parse HEAD^ >/dev/null 2>&1; then
+            git diff --check HEAD^..HEAD
+          else
+            git show --check --format= --no-ext-diff HEAD
+          fi
 
-  - name: Verify Go modules
-    run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go mod verify
+      - name: Verify Go modules
+        run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go mod verify
 
-  - name: Build API gateway
-    run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go build -v ./cmd/api-gateway/...
+      - name: Build API gateway
+        run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go build -v ./cmd/api-gateway/...
 
-  - name: Run Go tests
-    run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go test ./...
+      - name: Run Go tests
+        run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go test ./...
 
-  - name: Validate Docker Compose
-    run: docker compose config --quiet
-```
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
 
-compose-smoke:
-runs-on: ubuntu-latest
-timeout-minutes: 15
-needs: build-and-test
+  compose-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: build-and-test
 
-```
-steps:
-  - name: Checkout
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  - name: Validate Docker Compose
-    run: docker compose config --quiet
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
 
-  - name: Start backend stack
-    run: docker compose up -d --build postgres redis zookeeper kafka api-gateway
+      - name: Start backend stack
+        run: docker compose up -d --build postgres redis zookeeper kafka api-gateway
 
-  - name: Wait for backend health
-    shell: bash
-    run: |
-      for i in {1..45}; do
-        if curl -fsS http://localhost:8080/health; then
-          exit 0
-        fi
-        sleep 2
-      done
+      - name: Wait for backend health
+        shell: bash
+        run: |
+          for i in {1..45}; do
+            if curl -fsS http://localhost:8080/health; then
+              exit 0
+            fi
+            sleep 2
+          done
 
-      echo "Backend did not become healthy."
-      docker compose ps
-      docker compose logs --no-color --tail=300 api-gateway postgres redis kafka zookeeper
-      exit 1
+          echo "Backend did not become healthy."
+          docker compose ps
+          docker compose logs --no-color --tail=300 api-gateway postgres redis kafka zookeeper
+          exit 1
 
-  - name: Run DLQ smoke workflow
-    shell: pwsh
-    run: |
-      ./scripts/dlq-smoke.ps1 | Tee-Object -FilePath dlq-smoke.log
+      - name: Run DLQ smoke workflow
+        shell: pwsh
+        run: |
+          ./scripts/dlq-smoke.ps1 | Tee-Object -FilePath dlq-smoke.log
 
-  - name: Run checkout smoke workflow
-    shell: pwsh
-    run: |
-      ./scripts/demo-smoke.ps1 | Tee-Object -FilePath demo-smoke.log
+      - name: Run checkout smoke workflow
+        shell: pwsh
+        run: |
+          ./scripts/demo-smoke.ps1 | Tee-Object -FilePath demo-smoke.log
 
-  - name: Capture backend logs
-    if: always()
-    shell: bash
-    run: |
-      docker compose logs --no-color api-gateway kafka zookeeper > api-gateway.log || true
-      docker compose ps > compose-ps.log || true
+      - name: Capture backend logs
+        if: always()
+        shell: bash
+        run: |
+          docker compose logs --no-color api-gateway kafka zookeeper > api-gateway.log || true
+          docker compose ps > compose-ps.log || true
 
-  - name: Verify Kafka publish and consume logs
-    shell: bash
-    run: |
-      SUCCESS_ID=$(grep -Eo 'Successful order: [0-9a-fA-F-]+' demo-smoke.log | awk '{print $3}' | tr -d '\r')
-      FAILED_ID=$(grep -Eo 'Failed order: [0-9a-fA-F-]+' demo-smoke.log | awk '{print $3}' | tr -d '\r')
+      - name: Verify Kafka publish and consume logs
+        shell: bash
+        run: |
+          SUCCESS_ID=$(grep -Eo 'Successful order: [0-9a-fA-F-]+' demo-smoke.log | awk '{print $3}' | tr -d '\r')
+          FAILED_ID=$(grep -Eo 'Failed order: [0-9a-fA-F-]+' demo-smoke.log | awk '{print $3}' | tr -d '\r')
 
-      echo "SUCCESS_ID=$SUCCESS_ID"
-      echo "FAILED_ID=$FAILED_ID"
+          echo "SUCCESS_ID=$SUCCESS_ID"
+          echo "FAILED_ID=$FAILED_ID"
 
-      test -n "$SUCCESS_ID"
-      test -n "$FAILED_ID"
+          test -n "$SUCCESS_ID"
+          test -n "$FAILED_ID"
 
-      for ORDER_ID in "$SUCCESS_ID" "$FAILED_ID"; do
-        grep "$ORDER_ID" api-gateway.log | grep -q 'event published'
-        grep "$ORDER_ID" api-gateway.log | grep -q 'event processed'
-      done
+          for ORDER_ID in "$SUCCESS_ID" "$FAILED_ID"; do
+            grep "$ORDER_ID" api-gateway.log | grep -q 'event published'
+            grep "$ORDER_ID" api-gateway.log | grep -q 'event processed'
+          done
 
-  - name: Upload backend logs on failure
-    if: failure()
-    uses: actions/upload-artifact@v4
-    with:
-      name: compose-failure-logs
-      path: |
-        api-gateway.log
-        compose-ps.log
-        dlq-smoke.log
-        demo-smoke.log
+      - name: Upload backend logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-failure-logs
+          path: |
+            api-gateway.log
+            compose-ps.log
+            dlq-smoke.log
+            demo-smoke.log
 
-  - name: Stop backend stack
-    if: always()
-    run: docker compose down -v
-```
+      - name: Stop backend stack
+        if: always()
+        run: docker compose down -v
