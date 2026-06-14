@@ -73,12 +73,19 @@ jobs:
       - name: Run DLQ smoke workflow
         shell: pwsh
         run: |
-          ./scripts/dlq-smoke.ps1 | Tee-Object -FilePath dlq-smoke.log
+          ./scripts/dlq-smoke.ps1 *>&1 | Tee-Object -FilePath dlq-smoke.log
+          if (!(Test-Path dlq-smoke.log)) {
+            throw "dlq-smoke.log was not created"
+          }
 
       - name: Run checkout smoke workflow
         shell: pwsh
         run: |
-          ./scripts/demo-smoke.ps1 | Tee-Object -FilePath demo-smoke.log
+          ./scripts/demo-smoke.ps1 *>&1 | Tee-Object -FilePath demo-smoke.log
+          if (!(Test-Path demo-smoke.log)) {
+            throw "demo-smoke.log was not created"
+          }
+          Get-Content demo-smoke.log
 
       - name: Capture backend logs
         if: always()
@@ -90,6 +97,12 @@ jobs:
       - name: Verify Kafka publish and consume logs
         shell: bash
         run: |
+          echo "Files in workspace:"
+          ls -la
+
+          echo "demo-smoke.log:"
+          cat demo-smoke.log
+
           SUCCESS_ID=$(grep -Eo 'Successful order: [0-9a-fA-F-]+' demo-smoke.log | awk '{print $3}' | tr -d '\r')
           FAILED_ID=$(grep -Eo 'Failed order: [0-9a-fA-F-]+' demo-smoke.log | awk '{print $3}' | tr -d '\r')
 
