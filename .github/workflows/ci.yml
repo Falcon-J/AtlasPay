@@ -28,15 +28,14 @@ jobs:
           else
             git show --check --format= --no-ext-diff HEAD
           fi
-
       - name: Verify Go modules
         run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go mod verify
-
+      
       - name: Build API gateway
-        run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go build -v ./cmd/api-gateway/...
-
+        run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go build -buildvcs=false -v ./cmd/api-gateway/...
+      
       - name: Run Go tests
-        run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go test ./...
+        run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go test -buildvcs=false ./...    
 
       - name: Validate Docker Compose
         run: docker compose config --quiet
