@@ -1,0 +1,18 @@
+?   	github.com/atlaspay/platform/cmd/api-gateway	[no test files]
+?   	github.com/atlaspay/platform/internal/auth	[no test files]
+?   	github.com/atlaspay/platform/internal/common/auth	[no test files]
+?   	github.com/atlaspay/platform/internal/common/cache	[no test files]
+?   	github.com/atlaspay/platform/internal/common/config	[no test files]
+?   	github.com/atlaspay/platform/internal/common/database	[no test files]
+?   	github.com/atlaspay/platform/internal/common/dlq	[no test files]
+?   	github.com/atlaspay/platform/internal/common/errors	[no test files]
+ok  	github.com/atlaspay/platform/internal/common/kafka	0.020s
+?   	github.com/atlaspay/platform/internal/common/logger	[no test files]
+?   	github.com/atlaspay/platform/internal/common/metrics	[no test files]
+?   	github.com/atlaspay/platform/internal/common/middleware	[no test files]
+?   	github.com/atlaspay/platform/internal/common/response	[no test files]
+ok  	github.com/atlaspay/platform/internal/common/saga	0.026s
+?   	github.com/atlaspay/platform/internal/inventory	[no test files]
+?   	github.com/atlaspay/platform/internal/order	[no test files]
+?   	github.com/atlaspay/platform/internal/payment	[no test files]
+?   	github.com/atlaspay/platform/pkg/events	[no test files]

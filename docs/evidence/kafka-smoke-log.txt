@@ -1,0 +1,7 @@
+atlaspay-api-gateway  | 2026-06-14T15:15:02Z INF internal/common/kafka/kafka.go:82 > event published aggregate_id=88657e8a-a1ba-4e42-b258-090921bce9f3 correlation_id=2399b741-c692-40d0-8a74-8da585654b46 event_id=1781450102765-2fv6q1ip event_type=order.created service=api-gateway topic=atlaspay.orders
+atlaspay-api-gateway  | 2026-06-14T15:15:02Z INF internal/order/service.go:176 > saga execution completed correlation_id=88657e8a-a1ba-4e42-b258-090921bce9f3 order_id=88657e8a-a1ba-4e42-b258-090921bce9f3 service=api-gateway
+atlaspay-api-gateway  | 2026-06-14T15:15:02Z INF internal/common/kafka/kafka.go:226 > event processed correlation_id=88657e8a-a1ba-4e42-b258-090921bce9f3 event_id=1781450102765-2fv6q1ip event_type=order.created service=api-gateway
+atlaspay-api-gateway  | 2026-06-14T15:15:03Z INF internal/common/kafka/kafka.go:82 > event published aggregate_id=b4b9e105-9cdb-4dd5-8b1a-82361cfc93b1 correlation_id=eb895a9f-e9ea-4d9c-9723-f2731d518048 event_id=1781450103458-u8taogv7 event_type=order.created service=api-gateway topic=atlaspay.orders
+atlaspay-api-gateway  | 2026-06-14T15:15:03Z INF internal/common/saga/saga.go:229 > saga compensation completed correlation_id=b4b9e105-9cdb-4dd5-8b1a-82361cfc93b1 saga_id=b4b9e105-9cdb-4dd5-8b1a-82361cfc93b1 service=api-gateway
+atlaspay-api-gateway  | 2026-06-14T15:15:03Z INF internal/common/kafka/kafka.go:226 > event processed correlation_id=b4b9e105-9cdb-4dd5-8b1a-82361cfc93b1 event_id=1781450103458-u8taogv7 event_type=order.created service=api-gateway
+

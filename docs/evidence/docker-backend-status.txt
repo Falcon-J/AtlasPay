@@ -1,0 +1,16 @@
+Date: 2026-06-14
+
+Command: docker compose ps
+NAME                   IMAGE                             COMMAND                  SERVICE       CREATED       STATUS                    PORTS
+atlaspay-api-gateway   atlaspay-api-gateway              "./api-gateway"          api-gateway   13 days ago   Up 52 minutes (healthy)   0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp
+atlaspay-grafana       grafana/grafana:10.1.0            "/run.sh"                grafana       13 days ago   Up 52 minutes             0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp
+atlaspay-jaeger        jaegertracing/all-in-one:1.50     "/go/bin/all-in-one-…"   jaeger        13 days ago   Up 52 minutes             0.0.0.0:14268->14268/tcp, [::]:14268->14268/tcp, 0.0.0.0:6831->6831/udp, [::]:6831->6831/udp, 0.0.0.0:16686->16686/tcp, [::]:16686->16686/tcp
+atlaspay-kafka         confluentinc/cp-kafka:7.5.0       "/etc/confluent/dock…"   kafka         13 days ago   Up 52 minutes (healthy)   0.0.0.0:9092->9092/tcp, [::]:9092->9092/tcp, 0.0.0.0:29092->29092/tcp, [::]:29092->29092/tcp
+atlaspay-kafka-ui      provectuslabs/kafka-ui:latest     "/bin/sh -c 'java --…"   kafka-ui      13 days ago   Up 52 minutes             0.0.0.0:8090->8080/tcp, [::]:8090->8080/tcp
+atlaspay-postgres      postgres:15-alpine                "docker-entrypoint.s…"   postgres      13 days ago   Up 52 minutes (healthy)   0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+atlaspay-prometheus    prom/prometheus:v2.47.0           "/bin/prometheus --c…"   prometheus    13 days ago   Up 52 minutes             0.0.0.0:9090->9090/tcp, [::]:9090->9090/tcp
+atlaspay-redis         redis:7-alpine                    "docker-entrypoint.s…"   redis         13 days ago   Up 52 minutes (healthy)   0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp
+atlaspay-zookeeper     confluentinc/cp-zookeeper:7.5.0   "/etc/confluent/dock…"   zookeeper     13 days ago   Up 52 minutes             0.0.0.0:2181->2181/tcp, [::]:2181->2181/tcp
+
+Command: Invoke-RestMethod http://localhost:8080/health
+{"status":"healthy","db":"up","cache":"up"}

@@ -87,7 +87,7 @@ The demo shows:
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Go 1.21+
+- Go 1.25+
 - Docker & Docker Compose
 - (Optional) kubectl for Kubernetes deployment
 
@@ -119,8 +119,71 @@ docker-compose up -d
 # - Jaeger: http://localhost:16686
 # - Kafka UI: http://localhost:8090
 
-# 5. Live Dashboard (Demo Mode)
+# 5. Checkout Failure Lab
 # Open web/index.html in your browser
+```
+
+### Static Frontend Modes
+
+`web/index.html` is a dependency-free static frontend suitable for Vercel or any
+static host. It selects one of two clearly labeled modes:
+
+- **Live Backend Mode:** Uses the AtlasPay API after a short `/health` check.
+- **Demo Simulation Mode:** Runs deterministic checkout, payment-failure, and
+  inventory-compensation behavior entirely in the browser.
+
+To use a separately hosted API, define the public, non-secret API URL before the
+application script runs:
+
+```html
+<script>
+  window.ATLASPAY_API_BASE_URL = "https://api.example.com";
+</script>
+```
+
+When the page runs on `localhost` or `127.0.0.1` without that setting, it checks
+`http://localhost:8080`. Public hosts never try a visitor's localhost. If the API
+URL is missing, unhealthy, or a live API request fails, the UI switches to Demo
+Simulation Mode.
+
+Demo Simulation Mode visualizes the saga steps and browser-side state changes;
+it does not run or claim to validate Kafka, PostgreSQL, Redis, persistence,
+distributed retries, or real payment processing. Validate the full
+infrastructure path locally with `docker compose up -d` and the API at
+`http://localhost:8080`.
+
+### Proof / Reproducibility
+
+See [docs/evidence/README.md](docs/evidence/README.md) for the commands run,
+captured outputs, and current validation gaps. The public frontend falls back to
+browser simulation when the API is unavailable; Kafka, PostgreSQL, and Redis are
+not running in that Vercel/static-host simulation. Local evidence includes
+passing Dockerized Go tests and a Docker Compose smoke run covering successful
+checkout, payment-failure compensation, payment idempotency, metrics, and Kafka
+publish/consume log markers. A separate bounded DLQ smoke verifies three failed
+consumer attempts, PostgreSQL dead-letter persistence, publication to
+`atlaspay.dlq`, and continued consumption. The local proof script explicitly
+provisions its two required Kafka topics.
+
+GitHub Actions is configured to run Dockerized Go tests, Compose validation,
+whitespace checks, and both Docker Compose smoke workflows with a 60-second
+health deadline, failure-log upload, and unconditional volume cleanup.
+Configuration alone is not a passing-CI claim; use the repository's Actions
+page for the current run status.
+
+```powershell
+# Go tests without requiring a local Go installation
+docker run --rm -v "${PWD}:/src" -w /src golang:1.25 go test ./...
+
+# Local backend health and Kafka-backed checkout smoke
+docker compose config --quiet
+docker compose up -d --build --wait postgres redis zookeeper kafka api-gateway
+docker compose ps
+Invoke-RestMethod http://localhost:8080/health
+.\scripts\dlq-smoke.ps1
+.\scripts\demo-smoke.ps1
+docker compose logs api-gateway | Select-String "event published|event processed"
+docker compose down -v
 ```
 
 ## 🎥 Demo & Learning Resources

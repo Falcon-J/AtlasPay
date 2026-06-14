@@ -1,0 +1,6 @@
+Date: 2026-06-14
+Command: docker compose config --quiet
+Result: PASS
+
+The Compose file parsed successfully. This does not prove that images can be
+pulled, containers can start, or services become healthy.
