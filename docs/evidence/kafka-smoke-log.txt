@@ -4,4 +4,3 @@ atlaspay-api-gateway  | 2026-06-14T15:15:02Z INF internal/common/kafka/kafka.go:
 atlaspay-api-gateway  | 2026-06-14T15:15:03Z INF internal/common/kafka/kafka.go:82 > event published aggregate_id=b4b9e105-9cdb-4dd5-8b1a-82361cfc93b1 correlation_id=eb895a9f-e9ea-4d9c-9723-f2731d518048 event_id=1781450103458-u8taogv7 event_type=order.created service=api-gateway topic=atlaspay.orders
 atlaspay-api-gateway  | 2026-06-14T15:15:03Z INF internal/common/saga/saga.go:229 > saga compensation completed correlation_id=b4b9e105-9cdb-4dd5-8b1a-82361cfc93b1 saga_id=b4b9e105-9cdb-4dd5-8b1a-82361cfc93b1 service=api-gateway
 atlaspay-api-gateway  | 2026-06-14T15:15:03Z INF internal/common/kafka/kafka.go:226 > event processed correlation_id=b4b9e105-9cdb-4dd5-8b1a-82361cfc93b1 event_id=1781450103458-u8taogv7 event_type=order.created service=api-gateway
-

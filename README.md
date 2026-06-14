@@ -246,15 +246,10 @@ stateDiagram-v2
 - Payment fails → Inventory automatically released
 - Any step fails → Previous steps compensated in reverse order
 
-## 📈 Performance Targets
+## 📈 Performance Benchmarking
 
-| Metric | Result |
-|--------|--------|
-| Requests/min | Validated through k6 load-test runs |
-| P95 Latency | Tracked through Prometheus histograms and k6 thresholds |
-| P99 Latency | Tracked during load-test runs |
-| Cache Hit Rate | Exposed through cache metrics |
-| Error Rate | Tracked through HTTP and load-test metrics |
+k6 scripts are available for local benchmarking. Current performance results
+are not claimed until fresh k6 evidence is captured under `docs/evidence/`.
 
 ## 🧪 Testing
 
@@ -327,7 +322,7 @@ AtlasPay/
    → Show Grafana dashboards: p95 latency, error rate, saga metrics
 
 4. **Scaling path**
-   → k6 results, HPA configuration, Redis caching strategy
+   → k6 benchmarking scripts, HPA configuration, Redis caching strategy
 
 5. **Operational tradeoffs**
    → Cache hit rates, autoscaling policies, connection pooling

@@ -36,7 +36,8 @@ Captured on 2026-06-14:
 The consumer makes at most three handler attempts. Failed attempts wait 250 ms
 and then 500 ms before the final attempt. After exhaustion, the current DLQ path
 persists the event in PostgreSQL and publishes an `event.dead_lettered` event to
-`atlaspay.dlq`. This is bounded local/CI proof, not a production-grade DLQ claim.
+`atlaspay.dlq`. This is bounded local proof, not a production-grade DLQ claim.
+CI is configured to rerun the same workflow.
 
 ## Continuous Integration
 
@@ -83,6 +84,8 @@ different environments into one file.
 ## Not Yet Proven Here
 
 - Current load, latency, availability, or failure-rate results.
+- k6 scripts are available for local benchmarking, but current performance
+  results are not claimed until fresh output is captured in this folder.
 - Saga recovery after API or Kafka process restarts.
 - Multi-node Kafka behavior or production DLQ operations such as replay,
   retention, alerting, and poison-message administration.

@@ -9,9 +9,12 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     
     steps:
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 2
 
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -34,12 +37,12 @@ jobs:
       run: docker compose config --quiet
 
     - name: Check whitespace
-      run: git diff --check
+      run: git diff --check HEAD^ HEAD
 
     - name: Lint
-      uses: golangci/golangci-lint-action@v3
+      uses: golangci/golangci-lint-action@v9
       with:
-        version: latest
+        version: v2.12.2
         args: --timeout=5m
         
     # Optional: Docker build step to prove containerization knowledge
