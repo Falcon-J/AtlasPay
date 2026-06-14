@@ -1,139 +1,315 @@
-# AtlasPay - Distributed Order & Payment Platform
+# AtlasPay — Distributed Payment Platform
 
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](https://docker.com/)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-Ready-326CE5?style=flat&logo=kubernetes)](https://kubernetes.io/)
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-AWS%20EC2-FF9900?style=flat&logo=amazon-aws)](http://52.23.219.80:8080/health)
+[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?style=flat\&logo=go)](https://go.dev/)
+[![Kafka](https://img.shields.io/badge/Kafka-Event--Driven-231F20?style=flat\&logo=apachekafka)](https://kafka.apache.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Persistence-4169E1?style=flat\&logo=postgresql)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-Cache--Aside-DC382D?style=flat\&logo=redis)](https://redis.io/)
+[![Docker](https://img.shields.io/badge/Docker%20Compose-Validated-2496ED?style=flat\&logo=docker)](https://docs.docker.com/compose/)
+[![CI](https://github.com/Falcon-J/AtlasPay/actions/workflows/ci.yml/badge.svg)](https://github.com/Falcon-J/AtlasPay/actions/workflows/ci.yml)
 
-A distributed order and payment platform built with Go, demonstrating saga orchestration, payment idempotency, cache-aside reads, observability, and cloud-native deployment patterns.
+AtlasPay is a Kafka-backed distributed checkout and payment platform built with Go, Kafka, PostgreSQL, Redis, and Docker.
 
-## 🌐 Live Deployment
+It demonstrates backend reliability patterns used in payment and commerce systems: event-driven checkout processing, saga-style coordination, payment idempotency, bounded retries, dead-letter routing, inventory compensation, health checks, metrics, and reproducible Docker-based validation.
 
-**[View Live Demo](http://52.23.219.80:8080/health)** - AWS EC2 Free Tier
+---
 
-- **API Endpoint:** http://52.23.219.80:8080
-- **Health Check:** http://52.23.219.80:8080/health
-- **Status:** ✅ Running (PostgreSQL + Redis + API)
+## Highlights
 
-## 📺 Live Demo (5 Minutes)
+* Kafka-backed checkout flow using `order.created` events
+* Four backend service domains: Auth, Orders, Payments, Inventory
+* PostgreSQL persistence for transactional state
+* Redis cache-aside reads
+* Payment idempotency for safe duplicate/retry handling
+* Saga-style inventory compensation on payment failure
+* Bounded Kafka consumer retries with backoff
+* PostgreSQL dead-letter persistence
+* Kafka DLQ publishing to `atlaspay.dlq`
+* Docker Compose smoke workflows for success and failure paths
+* GitHub Actions workflow for automated validation
+* Static frontend demo with live backend mode and browser simulation fallback
 
-Want to see the system in action? Run the demo:
+---
 
-**For Interviews/Presentations:**
-- 📋 **Full Guide:** [DEMO_GUIDE.md](docs/runbooks/DEMO_GUIDE.md) - Complete walkthrough with manual curl commands
-- 🔧 **Automated:** `scripts/demo/demo-api.sh http://52.23.219.80:8080` (bash/WSL)
+## Architecture
 
-The demo shows:
-- ✅ User authentication (JWT tokens)
-- ✅ Order placement → Saga orchestration
-- ✅ Distributed transaction coordination (Order → Inventory → Payment)
-- ✅ Payment processing & idempotency
-- ✅ Real-time saga monitoring
+```mermaid
+flowchart TD
+    A[Frontend / API Client] --> B[Go API Gateway]
 
-**Interview Points Covered:**
-- Saga pattern for distributed transactions
-- Idempotency for safe retries
-- Cache-aside pattern
-- Graceful degradation (Kafka optional)
-- Distributed tracing & correlation IDs
+    B --> C[Auth Domain]
+    B --> D[Order Domain]
+    B --> E[Inventory Domain]
+    B --> F[Payment Domain]
 
-## 🏗️ Architecture
+    C --> DB[(PostgreSQL)]
+    D --> DB
+    E --> DB
+    F --> DB
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              API Gateway                                 │
-│                    (Auth, Rate Limiting, Routing)                       │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-          ┌─────────────────────────┼─────────────────────────┐
-          ▼                         ▼                         ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Order Service  │     │ Payment Service │     │Inventory Service│
-│                 │     │                 │     │                 │
-│ - Order CRUD    │     │ - Process Pay   │     │ - Stock Mgmt    │
-│ - State Machine │     │ - Idempotency   │     │ - Reservations  │
-│ - Redis Cache   │     │ - Refunds       │     │ - Opt. Locking  │
-└────────┬────────┘     └────────┬────────┘     └────────┬────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-                    ┌────────────▼────────────┐
-                    │     Apache Kafka        │
-                    │   (Event Streaming)     │
-                    └────────────┬────────────┘
-                                 │
-              ┌──────────────────┼──────────────────┐
-              ▼                  ▼                  ▼
-      ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-      │  PostgreSQL  │  │    Redis     │  │   Jaeger     │
-      │  (Primary)   │  │   (Cache)    │  │  (Tracing)   │
-      └──────────────┘  └──────────────┘  └──────────────┘
+    D --> R[(Redis Cache)]
+    E --> R
+
+    D --> K[Kafka Topic: order.created]
+    K --> W[Kafka Consumer]
+    W --> S[Saga Orchestrator]
+
+    S --> E
+    S --> F
+
+    W --> Retry[Bounded Retry Handler]
+    Retry --> DLQDB[(PostgreSQL dead_letter_events)]
+    Retry --> DLQK[Kafka Topic: atlaspay.dlq]
+
+    B --> H[Health Endpoint]
+    B --> M[Metrics Endpoint]
 ```
 
-## ✨ Key Features
+---
 
-| Feature | Implementation | Technical Notes |
-|---------|---------------|------------------|
-| **Saga Pattern** | Orchestrated distributed transactions | Compensating transactions, failure recovery |
-| **Event-Driven Order Flow** | Kafka-backed `order.created` processing | Async saga trigger with bounded retries and DLQ persistence |
-| **Caching** | Redis cache-aside pattern | Faster repeated reads with PostgreSQL as source of truth |
-| **Auth** | JWT with refresh token rotation | RBAC, secure session management |
-| **Observability** | Prometheus + Grafana + Jaeger infrastructure | Request metrics, error rates, dashboard-ready telemetry |
-| **Rate Limiting** | Token bucket algorithm | Per-IP/user limiting |
-| **Chaos Testing** | Failure injection scripts | Kafka down, DB slow, Redis failure |
-| **Load Testing** | k6 staged-load script | Throughput and latency validation workflow |
-| **Visual Dashboard** | Premium Vanilla JS & CSS | Demo-ready UI, real-time tracking |
+## Core Service Domains
 
-## 🚀 Quick Start
+| Domain    | Responsibility                                      |
+| --------- | --------------------------------------------------- |
+| Auth      | User registration, login, JWT-protected access      |
+| Orders    | Order creation, order state, Kafka event publishing |
+| Inventory | Stock checks, reservation, release, compensation    |
+| Payments  | Payment processing, idempotency, failure handling   |
+
+---
+
+## Checkout Flow
+
+```mermaid
+stateDiagram-v2
+    [*] --> OrderCreated
+    OrderCreated --> EventPublished: publish order.created
+    EventPublished --> ConsumerProcessing: Kafka consumer receives event
+    ConsumerProcessing --> InventoryReservation
+    InventoryReservation --> InventoryReserved: stock available
+    InventoryReservation --> OrderFailed: insufficient stock
+    InventoryReserved --> PaymentProcessing
+    PaymentProcessing --> OrderConfirmed: payment succeeds
+    PaymentProcessing --> InventoryCompensation: payment fails
+    InventoryCompensation --> OrderCompensated
+    OrderConfirmed --> [*]
+    OrderFailed --> [*]
+    OrderCompensated --> [*]
+```
+
+---
+
+## Reliability Behaviors
+
+| Behavior                 | Implementation                                            |
+| ------------------------ | --------------------------------------------------------- |
+| Event-driven checkout    | Order creation publishes `order.created` to Kafka         |
+| Saga processing          | Kafka consumer executes inventory and payment workflow    |
+| Payment failure handling | Reserved inventory is released through compensation       |
+| Idempotent payments      | Reused idempotency keys return the same payment result    |
+| Bounded retries          | Failed consumer handling retries up to a configured limit |
+| Dead-letter persistence  | Exhausted events are stored in PostgreSQL                 |
+| Kafka DLQ routing        | Dead-lettered events are published to `atlaspay.dlq`      |
+| Consumer continuation    | Follow-up events validate the consumer keeps processing   |
+| Observability            | Health and metrics endpoints support validation           |
+
+---
+
+## Validation Coverage
+
+AtlasPay includes Docker-based workflows covering success and failure scenarios.
+
+| Case | Covered behavior                           |
+| ---- | ------------------------------------------ |
+| 1    | Backend health check                       |
+| 2    | PostgreSQL connectivity                    |
+| 3    | Redis/cache connectivity                   |
+| 4    | User registration and login                |
+| 5    | Successful order creation                  |
+| 6    | Kafka `order.created` publish              |
+| 7    | Kafka consumer processing                  |
+| 8    | Inventory reservation                      |
+| 9    | Payment success and order confirmation     |
+| 10   | Payment failure and inventory compensation |
+| 11   | Idempotent payment reuse                   |
+| 12   | Invalid event retry exhaustion             |
+| 13   | PostgreSQL dead-letter persistence         |
+| 14   | Kafka DLQ publication                      |
+| 15   | Consumer continuation after DLQ event      |
+| 16   | Metrics endpoint reachability              |
+
+Evidence files are stored under:
+
+```text
+docs/evidence/
+```
+
+Key evidence files:
+
+```text
+docs/evidence/README.md
+docs/evidence/go-test-output.txt
+docs/evidence/docker-compose-health.txt
+docs/evidence/demo-smoke-output.txt
+docs/evidence/dlq-smoke-output.txt
+docs/evidence/kafka-smoke-log.txt
+```
+
+---
+
+## Tech Stack
+
+| Layer         | Technology                                   |
+| ------------- | -------------------------------------------- |
+| Backend       | Go 1.25                                      |
+| Messaging     | Kafka                                        |
+| Database      | PostgreSQL                                   |
+| Cache         | Redis                                        |
+| Validation    | Docker Compose, Go tests, smoke scripts      |
+| Observability | Health checks, Prometheus-compatible metrics |
+| Frontend Demo | Static HTML, CSS, JavaScript                 |
+| CI            | GitHub Actions                               |
+
+---
+
+## Quick Start
 
 ### Prerequisites
-- Go 1.25+
-- Docker & Docker Compose
-- (Optional) kubectl for Kubernetes deployment
 
-### Local Development
+* Docker Desktop
+* Docker Compose
+* PowerShell for smoke scripts
+* Go 1.25 optional, because tests can run through Dockerized Go
 
-```bash
-# 1. Clone and navigate
-cd AtlasPay
+---
 
-# 2. Start infrastructure
-docker-compose up -d postgres redis kafka
-
-# 3. Install dependencies
-go mod download
-
-# 4. Run the API Gateway
-go run cmd/api-gateway/main.go
-```
-
-### Full Stack with Monitoring
+## Run the Full Stack
 
 ```bash
-# Start everything including Prometheus, Grafana, Jaeger
-docker-compose up -d
-
-# Access:
-# - API: http://localhost:8080
-# - Grafana: http://localhost:3000 (admin/admin123)
-# - Jaeger: http://localhost:16686
-# - Kafka UI: http://localhost:8090
-
-# 5. Checkout Failure Lab
-# Open web/index.html in your browser
+docker compose up -d --build
 ```
 
-### Static Frontend Modes
+Check backend health:
 
-`web/index.html` is a dependency-free static frontend suitable for Vercel or any
-static host. It selects one of two clearly labeled modes:
+```bash
+curl http://localhost:8080/health
+```
 
-- **Live Backend Mode:** Uses the AtlasPay API after a short `/health` check.
-- **Demo Simulation Mode:** Runs deterministic checkout, payment-failure, and
-  inventory-compensation behavior entirely in the browser.
+Expected response shape:
 
-To use a separately hosted API, define the public, non-secret API URL before the
-application script runs:
+```json
+{
+  "status": "healthy",
+  "db": "up",
+  "cache": "up"
+}
+```
+
+Stop and clean local volumes:
+
+```bash
+docker compose down -v
+```
+
+---
+
+## Run Tests
+
+Without installing Go locally:
+
+### Bash
+
+```bash
+docker run --rm -v "$PWD:/src" -w /src golang:1.25 go test ./...
+```
+
+### PowerShell
+
+```powershell
+docker run --rm -v "${PWD}:/src" -w /src golang:1.25 go test ./...
+```
+
+---
+
+## Run Smoke Workflows
+
+Start the stack:
+
+```powershell
+docker compose up -d --build
+```
+
+Run checkout smoke:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/demo-smoke.ps1
+```
+
+Run DLQ smoke:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/dlq-smoke.ps1
+```
+
+Check Kafka event logs:
+
+```powershell
+docker compose logs api-gateway | Select-String "event published|event processed"
+```
+
+Clean up:
+
+```powershell
+docker compose down -v
+```
+
+---
+
+## GitHub Actions
+
+The CI workflow validates:
+
+* Dockerized `go test ./...`
+* Docker Compose configuration
+* committed whitespace checks
+* bounded Docker Compose startup
+* checkout smoke workflow
+* DLQ smoke workflow
+* Kafka publish/process assertions
+* failure-log upload
+* unconditional Docker cleanup
+
+Workflow file:
+
+```text
+.github/workflows/ci.yml
+```
+
+---
+
+## Static Frontend Demo
+
+`web/index.html` is a dependency-free frontend that can run locally or on a static host.
+
+It supports two modes:
+
+### Live Backend Mode
+
+Uses the AtlasPay API after a short `/health` check.
+
+### Demo Simulation Mode
+
+Runs deterministic checkout simulation entirely in the browser when the backend is unavailable.
+
+Demo Simulation Mode visualizes:
+
+* checkout creation
+* inventory reservation
+* payment failure
+* inventory compensation
+* revenue correctness
+* saga-style logs
+
+To configure a hosted backend API:
 
 ```html
 <script>
@@ -141,196 +317,136 @@ application script runs:
 </script>
 ```
 
-When the page runs on `localhost` or `127.0.0.1` without that setting, it checks
-`http://localhost:8080`. Public hosts never try a visitor's localhost. If the API
-URL is missing, unhealthy, or a live API request fails, the UI switches to Demo
-Simulation Mode.
+---
 
-Demo Simulation Mode visualizes the saga steps and browser-side state changes;
-it does not run or claim to validate Kafka, PostgreSQL, Redis, persistence,
-distributed retries, or real payment processing. Validate the full
-infrastructure path locally with `docker compose up -d` and the API at
-`http://localhost:8080`.
-
-### Proof / Reproducibility
-
-See [docs/evidence/README.md](docs/evidence/README.md) for the commands run,
-captured outputs, and current validation gaps. The public frontend falls back to
-browser simulation when the API is unavailable; Kafka, PostgreSQL, and Redis are
-not running in that Vercel/static-host simulation. Local evidence includes
-passing Dockerized Go tests and a Docker Compose smoke run covering successful
-checkout, payment-failure compensation, payment idempotency, metrics, and Kafka
-publish/consume log markers. A separate bounded DLQ smoke verifies three failed
-consumer attempts, PostgreSQL dead-letter persistence, publication to
-`atlaspay.dlq`, and continued consumption. The local proof script explicitly
-provisions its two required Kafka topics.
-
-GitHub Actions is configured to run Dockerized Go tests, Compose validation,
-whitespace checks, and both Docker Compose smoke workflows with a 60-second
-health deadline, failure-log upload, and unconditional volume cleanup.
-Configuration alone is not a passing-CI claim; use the repository's Actions
-page for the current run status.
-
-```powershell
-# Go tests without requiring a local Go installation
-docker run --rm -v "${PWD}:/src" -w /src golang:1.25 go test ./...
-
-# Local backend health and Kafka-backed checkout smoke
-docker compose config --quiet
-docker compose up -d --build --wait postgres redis zookeeper kafka api-gateway
-docker compose ps
-Invoke-RestMethod http://localhost:8080/health
-.\scripts\dlq-smoke.ps1
-.\scripts\demo-smoke.ps1
-docker compose logs api-gateway | Select-String "event published|event processed"
-docker compose down -v
-```
-
-## 🎥 Demo & Learning Resources
-- **[Premium Dashboard](web/index.html)**: Visualize Saga states and system health.
-- **[User Story Scenarios](docs/USER_STORIES.md)**: Real-world business cases (Happy path vs Payment failure).
-- **[Cloud Deployment Notes](docs/deployment/CLOUD_DEPLOYMENT.md)**: EC2 setup and Docker Hub push instructions.
-- **[Local Deployment Notes](docs/deployment/LOCAL_DEPLOYMENT.md)**: Free/local options for validating and recording the system.
-- **[Architecture Deep Dive](docs/architecture/ARCHITECTURE_DEEP_DIVE.md)**: System design and domain breakdown.
-
-## 📊 API Endpoints
+## API Endpoints
 
 ### Auth
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/register` | Register new user |
-| POST | `/api/auth/login` | Login (returns access + refresh tokens) |
-| POST | `/api/auth/refresh` | Rotate tokens |
-| POST | `/api/auth/logout` | Revoke refresh token |
 
-### Orders (Protected)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/orders` | Create order |
-| GET | `/api/orders` | List user's orders |
-| GET | `/api/orders/{id}` | Get order details |
-| PATCH | `/api/orders/{id}/cancel` | Cancel order |
+| Method | Endpoint             | Description   |
+| ------ | -------------------- | ------------- |
+| POST   | `/api/auth/register` | Register user |
+| POST   | `/api/auth/login`    | Login         |
+| POST   | `/api/auth/refresh`  | Refresh token |
+| POST   | `/api/auth/logout`   | Logout        |
 
-### Payments (Protected)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/payments` | Process payment (with idempotency key) |
-| GET | `/api/payments/{id}` | Get payment details |
-| POST | `/api/payments/{id}/refund` | Refund payment (admin only) |
+### Orders
+
+| Method | Endpoint                  | Description  |
+| ------ | ------------------------- | ------------ |
+| POST   | `/api/orders`             | Create order |
+| GET    | `/api/orders`             | List orders  |
+| GET    | `/api/orders/{id}`        | Get order    |
+| PATCH  | `/api/orders/{id}/cancel` | Cancel order |
+
+### Payments
+
+| Method | Endpoint                    | Description                          |
+| ------ | --------------------------- | ------------------------------------ |
+| POST   | `/api/payments`             | Process payment with idempotency key |
+| GET    | `/api/payments/{id}`        | Get payment                          |
+| POST   | `/api/payments/{id}/refund` | Refund payment, admin only           |
 
 ### Inventory
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/inventory/{sku}` | Check stock |
-| POST | `/api/inventory/reserve` | Reserve stock |
-| POST | `/api/inventory/release` | Release reservation |
 
-## 🔄 Saga: Order Placement Flow
+| Method | Endpoint                 | Description       |
+| ------ | ------------------------ | ----------------- |
+| GET    | `/api/inventory/{sku}`   | Check stock       |
+| POST   | `/api/inventory/reserve` | Reserve inventory |
+| POST   | `/api/inventory/release` | Release inventory |
 
-```mermaid
-stateDiagram-v2
-    [*] --> OrderCreated
-    OrderCreated --> InventoryReserving
-    InventoryReserving --> InventoryReserved: success
-    InventoryReserving --> OrderFailed: insufficient stock
-    InventoryReserved --> PaymentProcessing
-    PaymentProcessing --> PaymentSuccess: success
-    PaymentProcessing --> InventoryReleasing: payment failed
-    InventoryReleasing --> OrderFailed
-    PaymentSuccess --> OrderConfirmed
-    OrderConfirmed --> [*]
-    OrderFailed --> [*]
-```
+### System
 
-**Compensating Transactions:**
-- Payment fails → Inventory automatically released
-- Any step fails → Previous steps compensated in reverse order
-
-## 📈 Performance Benchmarking
-
-k6 scripts are available for local benchmarking. Current performance results
-are not claimed until fresh k6 evidence is captured under `docs/evidence/`.
-
-## 🧪 Testing
-
-### Unit Tests
-```bash
-go test ./... -v -cover
-```
-
-### Load Tests (k6)
-```bash
-# Install k6 first
-k6 run scripts/k6/load-test.js
-```
-
-### Chaos Tests
-```bash
-./chaos/run-tests.sh
-```
-
-## ☸️ Kubernetes Deployment
-
-```bash
-# Apply infrastructure
-kubectl apply -f deployments/kubernetes/infrastructure.yaml
-
-# Deploy API Gateway
-kubectl apply -f deployments/kubernetes/api-gateway.yaml
-
-# Check HPA status
-kubectl get hpa
-```
-
-## 🏛️ Project Structure
-
-```
-AtlasPay/
-├── cmd/                    # Service entrypoints
-│   └── api-gateway/
-├── internal/
-│   ├── common/             # Shared code
-│   │   ├── auth/           # JWT + RBAC
-│   │   ├── cache/          # Redis wrapper
-│   │   ├── config/         # Configuration
-│   │   ├── database/       # PostgreSQL
-│   │   ├── kafka/          # Producer/Consumer
-│   │   ├── logger/         # Structured logging
-│   │   ├── metrics/        # Prometheus
-│   │   ├── middleware/     # HTTP middleware
-│   │   └── saga/           # Saga orchestrator
-│   ├── auth/               # Auth domain
-│   ├── order/              # Order domain
-│   ├── payment/            # Payment domain
-│   └── inventory/          # Inventory domain
-├── pkg/events/             # Shared event schemas
-├── deployments/            # Docker, K8s configs
-├── chaos/                  # Chaos testing
-├── scripts/                # DB migrations, k6 tests
-└── grafana/                # Dashboard configs
-```
-
-## 💡 Key Technical Talking Points
-
-1. **Saga flow**
-   → Explain saga with order→inventory→payment flow and compensations
-
-2. **Failure handling**
-   → Explain compensation, idempotency, retry boundaries, and chaos-test scenarios
-
-3. **Observability**
-   → Show Grafana dashboards: p95 latency, error rate, saga metrics
-
-4. **Scaling path**
-   → k6 benchmarking scripts, HPA configuration, Redis caching strategy
-
-5. **Operational tradeoffs**
-   → Cache hit rates, autoscaling policies, connection pooling
-
-## 📄 License
-
-MIT
+| Method | Endpoint   | Description                     |
+| ------ | ---------- | ------------------------------- |
+| GET    | `/health`  | API, database, and cache health |
+| GET    | `/metrics` | Prometheus-compatible metrics   |
 
 ---
 
-**Built with ❤️ for FUTURE.**
+## Local Load Testing
+
+AtlasPay includes k6 scripts for local load testing.
+
+```bash
+k6 run scripts/k6/load-test.js
+```
+
+Recommended performance evidence format:
+
+```text
+Date:
+Machine:
+Command:
+Duration:
+Request rate:
+p95 latency:
+p99 latency:
+Failure rate:
+Docker Compose services:
+Commit SHA:
+```
+
+---
+
+## Project Structure
+
+```text
+AtlasPay/
+├── .github/
+│   └── workflows/              # GitHub Actions CI
+├── cmd/
+│   └── api-gateway/            # API entrypoint
+├── internal/
+│   ├── auth/                   # Auth domain
+│   ├── order/                  # Order domain
+│   ├── inventory/              # Inventory domain
+│   ├── payment/                # Payment domain
+│   └── common/
+│       ├── auth/               # JWT/RBAC helpers
+│       ├── cache/              # Redis wrapper
+│       ├── config/             # Runtime config
+│       ├── database/           # PostgreSQL connection
+│       ├── dlq/                # Dead-letter persistence
+│       ├── kafka/              # Kafka producer/consumer
+│       ├── logger/             # Structured logs
+│       ├── metrics/            # Prometheus metrics
+│       ├── middleware/         # HTTP middleware
+│       └── saga/               # Saga orchestration
+├── pkg/
+│   └── events/                 # Shared event schemas
+├── scripts/
+│   ├── demo-smoke.ps1          # Checkout smoke workflow
+│   ├── dlq-smoke.ps1           # DLQ smoke workflow
+│   └── k6/                     # Load testing scripts
+├── docs/
+│   ├── evidence/               # Captured validation evidence
+│   ├── architecture/           # Architecture notes
+│   └── deployment/             # Deployment notes
+├── web/
+│   └── index.html              # Static checkout simulator
+├── docker-compose.yml
+├── Dockerfile
+├── go.mod
+└── README.md
+```
+
+---
+
+#Key Tradeoffs 
+
+* event-driven checkout systems
+* saga-style compensation
+* payment idempotency
+* Kafka consumer retries
+* dead-letter queues
+* PostgreSQL vs Kafka DLQ responsibilities
+* Docker Compose based integration validation
+* health checks and metrics
+* public frontend demo vs backend validation workflow
+
+---
+
+## License
+
+MIT
