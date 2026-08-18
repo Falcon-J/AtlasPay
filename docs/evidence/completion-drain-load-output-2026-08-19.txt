@@ -1,0 +1,36 @@
+AtlasPay completion-drain load evidence
+Date: 2026-08-19
+Environment: Local Docker Compose on Windows; API gateway, Order/Saga, Payment,
+Inventory, PostgreSQL, Redis, Kafka, and Zookeeper healthy.
+
+Command:
+powershell -ExecutionPolicy Bypass -File scripts/completion-drain-load.ps1 -TargetRPM 1000 -Duration 10s -SkuCount 32 -DrainTimeoutSeconds 60
+
+Submit phase:
+target_rpm=1000
+duration=10s
+sku_count=32
+submit_attempts=167
+accepted_rate=1
+submit_latency_p95_ms=39.5
+http_failed_rate=0
+
+Authoritative PostgreSQL completion cohort:
+total=167|confirmed=167|active=0|failed=0
+p50_completion_ms=354.5
+p95_completion_ms=520.3
+max_completion_ms=732.3
+
+Additional 12,500-RPM multi-SKU stress cohort:
+target_rpm=12500, duration=5s, sku_count=64, Kafka workers=16
+submit_attempts=1041, accepted_rate=1, submit_latency_p95_ms=1121,
+http_failed_rate=0
+final_cohort=1041|1041|0|0
+p50_completion_ms=27933.2
+p95_completion_ms=32190.9
+max_completion_ms=32733.3
+
+Interpretation: the 12,500-RPM arrival burst was accepted and eventually drained,
+but it did not sustain 12,500 completed checkouts and did not meet a 120 ms
+completed-checkout p95. These are local Compose measurements, not production
+availability or SLO evidence.

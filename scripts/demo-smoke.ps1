@@ -38,20 +38,48 @@ function Wait-Saga {
         [string[]]$ExpectedStatuses
     )
 
-    for ($i = 0; $i -lt 20; $i++) {
+    $endpoint = "$BaseUrl/api/orders/$OrderId/saga"
+    $lastHttpStatus = "no response"
+    $lastResponseBody = ""
+    $lastStatus = "unknown"
+
+    $maxAttempts = 60
+    for ($i = 0; $i -lt $maxAttempts; $i++) {
         try {
-            $sagaResponse = Invoke-AtlasPay -Method GET -Path "/api/orders/$OrderId/saga" -Token $Token
+            $response = Invoke-WebRequest -UseBasicParsing -Uri $endpoint -Headers @{
+                Authorization = "Bearer $Token"
+            }
+            $lastHttpStatus = [int]$response.StatusCode
+            $lastResponseBody = $response.Content
+            $sagaResponse = $lastResponseBody | ConvertFrom-Json
             $status = $sagaResponse.data.status
+            $lastStatus = $status
             if ($ExpectedStatuses -contains $status) {
                 return $sagaResponse.data
             }
         } catch {
+            if ($_.Exception.Response) {
+                $lastHttpStatus = [int]$_.Exception.Response.StatusCode
+                $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+                $lastResponseBody = $reader.ReadToEnd()
+                $reader.Close()
+            } else {
+                $lastResponseBody = $_.Exception.Message
+            }
             # In Kafka mode the order is committed before the worker creates
             # in-memory saga state, so a short initial 404 is expected.
         }
         Start-Sleep -Milliseconds 500
     }
 
+    Write-Host "Saga polling failed."
+    Write-Host "Order ID: $OrderId"
+    Write-Host "Endpoint: $endpoint"
+    Write-Host "Expected status: $($ExpectedStatuses -join ', ')"
+    Write-Host "Actual status: $lastStatus"
+    Write-Host "Polling attempts: $maxAttempts"
+    Write-Host "Last HTTP status: $lastHttpStatus"
+    Write-Host "Last response body: $lastResponseBody"
     throw "Saga for order $OrderId did not reach expected status: $($ExpectedStatuses -join ', ')"
 }
 
@@ -75,6 +103,14 @@ $auth = Invoke-AtlasPay -Method POST -Path "/api/auth/register" -Body @{
 $token = $auth.data.access_token
 if (-not $token) {
     throw "Registration did not return an access token"
+}
+
+Write-Host "Seeding smoke-test inventory..."
+foreach ($sku in @("LAPTOP-001", "HEADPHONES-001", "FAIL-PAYMENT-001")) {
+    Invoke-AtlasPay -Method POST -Path "/api/inventory/restock" -Token $token -Body @{
+        sku = $sku
+        quantity = 1
+    } | Out-Null
 }
 
 Write-Host "Creating successful saga order..."

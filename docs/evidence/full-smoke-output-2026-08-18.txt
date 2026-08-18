@@ -1,0 +1,41 @@
+AtlasPay local Docker Compose smoke matrix
+Date: 2026-08-18
+Environment: rebuilt api-gateway image; PostgreSQL, Redis, Kafka, and Zookeeper healthy
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/demo-smoke.ps1
+RESULT: passed
+SUCCESS_SAGA=completed
+SUCCESS_ORDER=confirmed
+FAILURE_SAGA=compensated
+FAILURE_ORDER=failed
+IDEMPOTENT_PAYMENT_ID_REUSED=true
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/dlq-smoke.ps1
+RESULT: passed
+RETRY_ATTEMPTS=3
+DLQ_PERSISTED=true
+DLQ_TOPIC=atlaspay.dlq
+FOLLOW_UP_EVENT_PROCESSED=true
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/duplicate-event-smoke.ps1
+RESULT: passed
+ORDER_STATUS=confirmed
+RESERVATIONS_BEFORE=1|1
+RESERVATIONS_AFTER=1|1
+TERMINAL_REDELIVERY_GUARD=observed_in_api_logs
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/outbox-recovery-smoke.ps1
+RESULT: passed
+ORDER_STATUS_AFTER_RECOVERY=confirmed
+OUTBOX_BEFORE_RECOVERY=1|f|
+OUTBOX_AFTER_RECOVERY=18|t|
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/saga-restart-smoke.ps1
+RESULT: passed
+SAGA_STATUS_BEFORE_RESTART=completed
+SAGA_STATUS_AFTER_RESTART=completed
+PERSISTED_STEP_LOG_COUNT=5
+
+Interpretation: this proves the local integration and recovery workflows above.
+It does not prove four independently deployed services or 12.5k completed
+checkouts per minute.

@@ -1,0 +1,52 @@
+AtlasPay Payment service extraction validation
+Date: 2026-08-18
+Environment: Docker Compose; API gateway + payment-service + inventory-service; 8 Kafka workers; 16 order partitions
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/payment-service-contract-smoke.ps1
+RESULT: passed
+PAYMENT_HEALTH=healthy
+INVALID_INTERNAL_TOKEN=401_REJECTED
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/demo-smoke.ps1
+RESULT: passed
+SUCCESS_SAGA=completed
+SUCCESS_ORDER=confirmed
+FAILURE_SAGA=compensated
+FAILURE_ORDER=failed
+IDEMPOTENT_PAYMENT_ID_REUSED=true
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/duplicate-event-smoke.ps1
+RESULT: passed
+RESERVATIONS_BEFORE=1|1
+RESERVATIONS_AFTER=1|1
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/dlq-smoke.ps1
+RESULT: passed
+RETRY_ATTEMPTS=3
+DLQ_PERSISTED=true
+FOLLOW_UP_EVENT_PROCESSED=true
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/outbox-recovery-smoke.ps1
+RESULT: passed
+ORDER_STATUS_AFTER_RECOVERY=confirmed
+OUTBOX_BEFORE_RECOVERY=1|f|
+OUTBOX_AFTER_RECOVERY=25|t|
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/saga-restart-smoke.ps1
+RESULT: passed
+SAGA_STATUS_BEFORE_RESTART=completed
+SAGA_STATUS_AFTER_RESTART=completed
+PERSISTED_STEP_LOG_COUNT=5
+
+Gateway log markers:
+USING_STANDALONE_PAYMENT_SERVICE=true
+PAYMENT_SERVICE_STARTED=true
+USING_STANDALONE_INVENTORY_SERVICE=true
+USING_STANDALONE_ORDER_SERVICE=true
+
+Order service log markers:
+KAFKA_ORDER_WORKERS=8
+
+Interpretation: Payment is now a separately built and health-checked process
+with a token-protected private contract. Inventory is also extracted and
+validated; Order/Saga remains in the gateway process.

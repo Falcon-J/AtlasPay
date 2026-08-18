@@ -1,0 +1,13 @@
+AtlasPay transactional outbox recovery evidence
+Date: 2026-08-18
+Environment: Local Docker Compose; Kafka stopped during order creation
+
+ORDER_STATUS_AFTER_RECOVERY=confirmed
+OUTBOX_BEFORE_RECOVERY=1|f|
+OUTBOX_AFTER_RECOVERY=25|t|
+
+Interpretation:
+- The order was accepted and retained while Kafka was unavailable.
+- The outbox publisher retried after Kafka restart.
+- The order event was eventually consumed and the order reached confirmed.
+- The outbox attempt count includes retry attempts during the outage.

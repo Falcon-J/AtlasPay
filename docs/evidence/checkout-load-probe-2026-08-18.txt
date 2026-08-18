@@ -1,0 +1,27 @@
+AtlasPay checkout load diagnostic probe
+Date: 2026-08-18
+Environment: Local Docker Compose; one api-gateway process; one Kafka orders partition
+Command: Dockerized k6 checkout scenario, TARGET_RPM=6000, DURATION=10s
+
+Observed k6 summary from the initial probe:
+{
+  "target_rpm": 6000,
+  "duration": "10s",
+  "checkout_attempts": 824,
+  "completed_rate": 0.010922330097087379,
+  "latency_p95_ms": 2775.7,
+  "http_failed_rate": 0.9503307415573866
+}
+
+Post-probe database snapshot:
+confirmed|446
+failed|3
+pending|380
+
+Interpretation:
+- This is a diagnostic failure, not release evidence for an RPM claim.
+- The original probe counted expected initial saga-poll 404s as HTTP failures;
+  the checkout harness now excludes those expected responses.
+- The current Kafka consumer processes the saga serially, and the simulated
+  payment step sleeps 100 ms. Reaching 12.5k completed checkouts/min requires
+  partitioned/parallel processing plus a new measured run.

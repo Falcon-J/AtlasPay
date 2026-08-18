@@ -63,12 +63,12 @@ jobs:
               --create \
               --if-not-exists \
               --topic "$TOPIC" \
-              --partitions 1 \
+              --partitions $([ "$TOPIC" = "atlaspay.orders" ] && echo 16 || echo 1) \
               --replication-factor 1
           done
 
-      - name: Start API gateway
-        run: docker compose up -d --build api-gateway
+      - name: Start application processes
+        run: docker compose up -d --build payment-service inventory-service order-service api-gateway
 
       - name: Wait for backend health
         shell: bash
@@ -84,6 +84,43 @@ jobs:
           docker compose ps
           docker compose logs --no-color --tail=300 api-gateway postgres redis kafka zookeeper
           exit 1
+
+      - name: Run payment service contract smoke workflow
+        shell: pwsh
+        run: |
+          ./scripts/payment-service-contract-smoke.ps1 *>&1 | Tee-Object -FilePath payment-service-contract-smoke.log
+          if (!(Test-Path payment-service-contract-smoke.log)) {
+            throw "payment-service-contract-smoke.log was not created"
+          }
+
+      - name: Run inventory service contract smoke workflow
+        shell: pwsh
+        run: |
+          ./scripts/inventory-service-contract-smoke.ps1 *>&1 | Tee-Object -FilePath inventory-service-contract-smoke.log
+          if (!(Test-Path inventory-service-contract-smoke.log)) {
+            throw "inventory-service-contract-smoke.log was not created"
+          }
+
+      - name: Run order service contract smoke workflow
+        shell: pwsh
+        run: |
+          ./scripts/order-service-contract-smoke.ps1 *>&1 | Tee-Object -FilePath order-service-contract-smoke.log
+          if (!(Test-Path order-service-contract-smoke.log)) {
+            throw "order-service-contract-smoke.log was not created"
+          }
+
+      - name: Run saga claim integration test
+        shell: bash
+        run: |
+          docker build --target builder -t atlaspay-order-test -f Dockerfile.order .
+          NETWORK=$(docker network ls --filter label=com.docker.compose.network=atlaspay-network --format '{{.ID}}' | head -n 1)
+          test -n "$NETWORK"
+          docker run --rm --network "$NETWORK" \
+            -e ATLASPAY_INTEGRATION=1 \
+            -w /app \
+            atlaspay-order-test \
+            go test -buildvcs=false ./internal/order -run TestRepositoryClaimSagaLease -count=1 -v \
+            2>&1 | tee saga-claim-integration.log
 
       - name: Run DLQ smoke workflow
         shell: pwsh
@@ -102,11 +139,47 @@ jobs:
           }
           Get-Content demo-smoke.log
 
+      - name: Run duplicate-event smoke workflow
+        shell: pwsh
+        run: |
+          ./scripts/duplicate-event-smoke.ps1 *>&1 | Tee-Object -FilePath duplicate-event-smoke.log
+          if (!(Test-Path duplicate-event-smoke.log)) {
+            throw "duplicate-event-smoke.log was not created"
+          }
+          Get-Content duplicate-event-smoke.log
+
+      - name: Run outbox recovery smoke workflow
+        shell: pwsh
+        run: |
+          ./scripts/outbox-recovery-smoke.ps1 *>&1 | Tee-Object -FilePath outbox-recovery-smoke.log
+          if (!(Test-Path outbox-recovery-smoke.log)) {
+            throw "outbox-recovery-smoke.log was not created"
+          }
+          Get-Content outbox-recovery-smoke.log
+
+      - name: Run saga restart smoke workflow
+        shell: pwsh
+        run: |
+          ./scripts/saga-restart-smoke.ps1 *>&1 | Tee-Object -FilePath saga-restart-smoke.log
+          if (!(Test-Path saga-restart-smoke.log)) {
+            throw "saga-restart-smoke.log was not created"
+          }
+          Get-Content saga-restart-smoke.log
+
+      - name: Run saga crash-replay smoke workflow
+        shell: pwsh
+        run: |
+          ./scripts/saga-crash-replay-smoke.ps1 *>&1 | Tee-Object -FilePath saga-crash-replay-smoke.log
+          if (!(Test-Path saga-crash-replay-smoke.log)) {
+            throw "saga-crash-replay-smoke.log was not created"
+          }
+          Get-Content saga-crash-replay-smoke.log
+
       - name: Capture backend logs
         if: always()
         shell: bash
         run: |
-          docker compose logs --no-color api-gateway kafka zookeeper > api-gateway.log || true
+          docker compose logs --no-color api-gateway order-service payment-service inventory-service kafka zookeeper > backend.log || true
           docker compose ps > compose-ps.log || true
 
       - name: Verify Kafka publish and consume logs
@@ -128,8 +201,8 @@ jobs:
           test -n "$FAILED_ID"
 
           for ORDER_ID in "$SUCCESS_ID" "$FAILED_ID"; do
-            grep "$ORDER_ID" api-gateway.log | grep -q 'event published'
-            grep "$ORDER_ID" api-gateway.log | grep -q 'event processed'
+            grep "$ORDER_ID" backend.log | grep -q 'event published'
+            grep "$ORDER_ID" backend.log | grep -q 'event processed'
           done
 
       - name: Upload backend logs on failure
@@ -138,10 +211,18 @@ jobs:
         with:
           name: compose-failure-logs
           path: |
-            api-gateway.log
+            backend.log
             compose-ps.log
             dlq-smoke.log
+            payment-service-contract-smoke.log
+            inventory-service-contract-smoke.log
+            order-service-contract-smoke.log
+            saga-claim-integration.log
             demo-smoke.log
+            duplicate-event-smoke.log
+            outbox-recovery-smoke.log
+            saga-restart-smoke.log
+            saga-crash-replay-smoke.log
 
       - name: Stop backend stack
         if: always()

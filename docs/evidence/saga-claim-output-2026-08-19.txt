@@ -1,0 +1,19 @@
+AtlasPay in-flight saga claim integration validation
+Date: 2026-08-19
+Environment: Docker Compose PostgreSQL; Order/Saga service migration applied
+
+COMMAND:
+docker build --target builder -t atlaspay-order-builder -f Dockerfile.order .
+docker run --rm --network atlaspay_atlaspay-network -e ATLASPAY_INTEGRATION=1 -w /app atlaspay-order-builder go test -buildvcs=false ./internal/order -run TestRepositoryClaimSagaLease -count=1 -v
+
+RESULT: passed
+FIRST_EVENT_CLAIM=true
+SAME_EVENT_RETRY_REFRESHED=true
+DIFFERENT_ACTIVE_EVENT_REJECTED=true
+EXPIRED_LEASE_RECLAIMED=true
+
+Interpretation: PostgreSQL is the authoritative owner of the in-flight saga
+claim. A process crash can leave a lease that another Order/Saga worker may
+reclaim; a different active replay cannot enter the same order concurrently.
+This is repository-level crash/replay proof, not yet a controlled live Kafka
+process-crash experiment.

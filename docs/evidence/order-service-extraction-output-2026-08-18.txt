@@ -1,0 +1,34 @@
+AtlasPay Order/Saga service extraction validation
+Date: 2026-08-18
+Environment: Docker Compose; API gateway + order-service + payment-service + inventory-service; 8 Kafka workers; 16 order partitions
+
+COMMAND: docker compose exec -T order-service wget --no-verbose --tries=1 --spider http://localhost:8083/health
+RESULT: passed
+ORDER_HEALTH=healthy
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/order-service-contract-smoke.ps1
+RESULT: passed
+INVALID_INTERNAL_TOKEN=401_REJECTED
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/demo-smoke.ps1
+RESULT: passed
+SUCCESS_SAGA=completed
+SUCCESS_ORDER=confirmed
+FAILURE_SAGA=compensated
+FAILURE_ORDER=failed
+IDEMPOTENT_PAYMENT_ID_REUSED=true
+
+Gateway log markers:
+USING_STANDALONE_ORDER_SERVICE=true
+USING_STANDALONE_PAYMENT_SERVICE=true
+USING_STANDALONE_INVENTORY_SERVICE=true
+
+Order service log markers:
+ORDER_SERVICE_STARTED=true
+KAFKA_ORDER_WORKERS=8
+EVENT_PUBLISHED=true
+EVENT_PROCESSED=true
+
+Interpretation: Order/Saga now owns the Kafka consumer, transactional outbox,
+DLQ path, and saga persistence in the four-process Compose topology. PostgreSQL
+and Redis remain shared during this reversible process extraction.

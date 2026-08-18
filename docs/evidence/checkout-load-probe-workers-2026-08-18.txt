@@ -1,0 +1,21 @@
+AtlasPay checkout load probe with configurable workers
+Date: 2026-08-18
+Environment: Docker Compose; KAFKA_WORKERS=8; atlaspay.orders=16 partitions
+Command: docker run --rm -i -e TARGET_RPM=12500 -e DURATION=10s -e POLL_ATTEMPTS=120 -v "${PWD}/scripts/k6:/scripts:ro" grafana/k6 run /scripts/checkout-load.js
+
+TARGET_RPM=12500
+DURATION=10s
+CHECKOUT_ATTEMPTS=733
+ORDERS_ACCEPTED_RATE=1.0
+COMPLETED_RATE=1.0
+LATENCY_P95_MS=37054.4
+HTTP_FAILED_RATE=0.9755700576
+K6_EXIT=1
+
+Interpretation:
+- The displayed completed rate is scoped to the 93 iterations that finished;
+  640 iterations were interrupted during the graceful stop.
+- This is not a 12.5k completed-checkout result.
+- The polling workload and API path saturated under this target; the next
+  benchmark must separate submit throughput from completion latency and add
+  queue/consumer lag measurements.

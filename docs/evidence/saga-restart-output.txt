@@ -1,0 +1,13 @@
+AtlasPay durable saga snapshot evidence
+Date: 2026-08-18
+Environment: Local Docker Compose; api-gateway restarted after checkout completion
+
+SAGA_STATUS_BEFORE_RESTART=completed
+SAGA_STATUS_AFTER_RESTART=completed
+PERSISTED_STEP_LOG_COUNT=5
+
+Interpretation:
+- The saga endpoint reconstructed the latest state from PostgreSQL after the
+  process restart.
+- The five checkout steps remained observable without relying on the prior
+  process's in-memory map.

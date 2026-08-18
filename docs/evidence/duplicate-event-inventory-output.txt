@@ -1,0 +1,12 @@
+AtlasPay duplicate order event evidence
+Date: 2026-08-18
+Environment: Local Docker Compose; api-gateway rebuilt with reservation deduplication
+Scenario: Publish two redelivered order.created events for an already completed order
+
+ORDER_STATUS=confirmed
+RESERVATIONS_BEFORE=1|1
+RESERVATIONS_AFTER=1|1
+
+Interpretation:
+- Replayed order events did not create a second reservation.
+- The `(order_id, sku)` reservation identity remained stable across redelivery.

@@ -1,12 +1,13 @@
 $ErrorActionPreference = "Stop"
 
 foreach ($topic in @("atlaspay.orders", "atlaspay.dlq")) {
+    $partitions = if ($topic -eq "atlaspay.orders") { 16 } else { 1 }
     docker compose exec -T kafka kafka-topics `
         --bootstrap-server localhost:9092 `
         --create `
         --if-not-exists `
         --topic $topic `
-        --partitions 1 `
+        --partitions $partitions `
         --replication-factor 1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to provision Kafka topic $topic"
@@ -70,7 +71,7 @@ if ($fields[0] -ne "atlaspay.orders" -or $fields[1] -ne "order.created" -or $fie
 
 $dlqPublished = $false
 for ($attempt = 1; $attempt -le 20; $attempt++) {
-    $logs = docker compose logs --no-color api-gateway
+    $logs = docker compose logs --no-color order-service
     $dlqPublished = $logs |
         Select-String $failedCorrelationId |
         Select-String "event published" |
@@ -98,7 +99,7 @@ Publish-Event @{
 
 $processed = $false
 for ($attempt = 1; $attempt -le 20; $attempt++) {
-    $logs = docker compose logs --no-color api-gateway
+    $logs = docker compose logs --no-color order-service
     if ($logs | Select-String $continuationCorrelationId | Select-String -Quiet "event processed") {
         $processed = $true
         break

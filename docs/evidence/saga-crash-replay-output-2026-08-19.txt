@@ -1,0 +1,17 @@
+AtlasPay saga process-crash replay validation
+Date: 2026-08-19
+Environment: four-process Docker Compose topology; Payment intentionally stopped
+while Order/Saga acquired the saga claim
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/saga-crash-replay-smoke.ps1
+RESULT: passed
+CRASH_POINT=after_saga_claim_before_payment_completion
+ORDER_STATUS_AFTER_REPLAY=confirmed
+RESERVATIONS=1
+PAYMENTS=1
+CLAIM_AFTER_REPLAY=completed
+
+Interpretation: Order/Saga was killed after acquiring an active claim, then
+restarted. Kafka redelivered the event and the checkout converged to one
+reservation and one payment. This is local process-crash evidence, not
+multi-node or production availability evidence.

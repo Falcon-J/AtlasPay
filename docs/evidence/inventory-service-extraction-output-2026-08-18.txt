@@ -1,0 +1,44 @@
+AtlasPay Inventory service extraction validation
+Date: 2026-08-18
+Environment: Docker Compose; API gateway + payment-service + inventory-service; 8 Kafka workers; 16 order partitions
+
+COMMAND: docker compose exec -T inventory-service wget --no-verbose --tries=1 --spider http://localhost:8082/health
+RESULT: passed
+INVENTORY_HEALTH=healthy
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/inventory-service-contract-smoke.ps1
+RESULT: passed
+INVALID_INTERNAL_TOKEN=401_REJECTED
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/demo-smoke.ps1
+RESULT: passed
+SUCCESS_SAGA=completed
+SUCCESS_ORDER=confirmed
+FAILURE_SAGA=compensated
+FAILURE_ORDER=failed
+IDEMPOTENT_PAYMENT_ID_REUSED=true
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/duplicate-event-smoke.ps1
+RESULT: passed
+RESERVATIONS_BEFORE=1|1
+RESERVATIONS_AFTER=1|1
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/outbox-recovery-smoke.ps1
+RESULT: passed
+ORDER_STATUS_AFTER_RECOVERY=confirmed
+OUTBOX_BEFORE_RECOVERY=1|f|
+OUTBOX_AFTER_RECOVERY=15|t|
+
+COMMAND: powershell -ExecutionPolicy Bypass -File scripts/saga-restart-smoke.ps1
+RESULT: passed
+SAGA_STATUS_BEFORE_RESTART=completed
+SAGA_STATUS_AFTER_RESTART=completed
+PERSISTED_STEP_LOG_COUNT=5
+
+Service log markers:
+INVENTORY_SERVICE_STARTED=true
+PAYMENT_SERVICE_STARTED=true
+
+Interpretation: Inventory is now a separately built and health-checked process
+with a token-protected private contract. PostgreSQL and Redis remain shared
+during this reversible process extraction; Order/Saga owns Kafka and saga state.

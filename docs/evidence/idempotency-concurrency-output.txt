@@ -1,0 +1,16 @@
+AtlasPay idempotency concurrency evidence
+Date: 2026-08-18
+Environment: Local Docker Compose; api-gateway rebuilt from the working tree
+HEAD: a7bec73
+Scenario: 20 concurrent POST /api/payments requests with the same idempotency key
+
+CONCURRENT_REQUESTS=20
+SUCCESS_RESPONSES=20
+UNIQUE_PAYMENT_IDS=1
+NON_SUCCESS_CODES=
+CONFLICT_STATUS=409
+
+Interpretation:
+- Concurrent retries converged on one persisted payment record.
+- No request surfaced the database unique-key race as an internal error.
+- Reusing the key with a different payment payload was rejected with HTTP 409.

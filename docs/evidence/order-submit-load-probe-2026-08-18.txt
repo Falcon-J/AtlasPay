@@ -1,0 +1,18 @@
+AtlasPay order-submit load probe
+Date: 2026-08-18
+Environment: four-process Docker Compose topology; Order/Saga owns 8 Kafka workers; atlaspay.orders has 16 partitions
+Command: docker run --rm -i -e TARGET_RPM=12500 -e DURATION=5s -e PREALLOCATED_VUS=250 -e MAX_VUS=1000 -v "${PWD}/scripts/k6:/scripts:ro" grafana/k6 run /scripts/order-submit-load.js
+
+TARGET_RPM=12500
+DURATION=5s
+SUBMIT_ATTEMPTS=1042
+ACCEPTED_RATE=1.0
+SUBMIT_LATENCY_P95_MS=162
+HTTP_FAILED_RATE=0.0
+
+Interpretation:
+- The gateway accepted the target arrival rate for order submission in this
+  short local probe.
+- This is submit-throughput evidence only. It does not prove that 12,500
+  checkouts per minute completed their Kafka saga, nor does it prove a
+  production SLO.
