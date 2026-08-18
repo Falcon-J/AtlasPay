@@ -12,7 +12,8 @@ These scenarios explain the business value and failure modes behind the AtlasPay
 3.  **Inventory Service**: Checks stock. Laptop is available! It places a **Reservation** (decrementing available stock but keeping it in a "reserved" state).
 4.  **Payment Service**: Processes the credit card. Success!
 5.  **Completion**: Order Service updates status to `CONFIRMED`.
-6.  **Outcome**: User is happy; data is consistent across all three services.
+6.  **Outcome**: User is happy; data is consistent across the gateway and three
+    bounded-context processes.
 
 ---
 

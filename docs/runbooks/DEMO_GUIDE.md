@@ -79,7 +79,9 @@ curl -s -X POST $API_URL/api/orders \
   "cache": "up"
 }
 ```
-**Interview Point:** "System has three core components - API, PostgreSQL, and Redis - all verified healthy."
+**Interview Point:** "The public gateway reports its database and cache health;
+the Compose health checks separately validate Order/Saga, Payment, Inventory,
+Kafka, PostgreSQL, and Redis."
 
 ---
 
@@ -150,7 +152,8 @@ EVENT EMITTED (Kafka - could trigger downstream services)
 ```
 
 **Interview Points:**
-- "Saga pattern coordinates across 3 microservices"
+- "Saga pattern coordinates Order/Saga, Inventory, and Payment processes; the
+  gateway owns public authentication and private service contracts"
 - "Each step has retry logic with exponential backoff"
 - "If payment fails, inventory is released (compensating transaction)"
 - "Idempotency key prevents duplicate charges on network retry"
@@ -264,11 +267,16 @@ No duplicate charge, no new payment
 ### When They Ask: "How is This Different From a Monolith?"
 
 **You Can Say:**
-- "This is a distributed system with 3 loosely-coupled services"
-- "Each service has its own database schema (order_schema, inventory_schema, payment_schema)"
+- "This is a distributed system with four application processes: Gateway/Auth,
+  Order/Saga, Inventory, and Payment"
+- "The current local extraction shares PostgreSQL and Redis; separate storage
+  ownership is a production hardening gate"
 - "Communication is event-driven via Kafka (async + resilient)"
-- "Scaling: can deploy payment service separately from order service"
-- "Failure isolation: payment service can go down without crashing orders"
+- "Scaling: Order/Saga owns eight Kafka workers over sixteen order partitions;
+  Payment and Inventory are separately built processes"
+- "Failure isolation: the gateway, Order/Saga, Payment, and Inventory have
+  token-protected private contracts; durable outbox and restart evidence are
+  local proof, not production availability proof"
 
 ---
 
@@ -309,7 +317,7 @@ No duplicate charge, no new payment
 
 ## 📸 Screenshots/Videos You Can Show
 
-1. **API Health Check** - Shows all 3 components healthy
+1. **API and service health checks** - Shows the gateway and extracted processes healthy
 2. **Order Creation Response** - Shows saga_state: "ORDER_CREATED"
 3. **Polling Output** - Shows saga progression (INVENTORY_RESERVED → PAYMENT_PROCESSING → FINALIZED)
 4. **Idempotency Test** - Same order returned, no duplicate charge

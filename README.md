@@ -9,6 +9,10 @@
 
 AtlasPay is a Kafka-backed distributed checkout and payment platform built with Go, Kafka, PostgreSQL, Redis, and Docker.
 
+See [`docs/LEARNING_PATH.md`](docs/LEARNING_PATH.md) for the staged path from
+the current gateway-plus-payment-and-inventory topology to independently
+deployed services.
+
 It demonstrates backend reliability patterns used in payment and commerce systems: event-driven checkout processing, saga-style coordination, payment idempotency, bounded retries, dead-letter routing, inventory compensation, health checks, metrics, and reproducible Docker-based validation.
 
 ---
@@ -16,7 +20,8 @@ It demonstrates backend reliability patterns used in payment and commerce system
 ## Highlights
 
 * Kafka-backed checkout flow using `order.created` events
-* Four backend service domains: Auth, Orders, Payments, Inventory
+* Gateway/Auth process with private clients for Order/Saga, Payment, and Inventory
+* Independently deployed Order/Saga, Payment, and Inventory services with private HTTP contracts
 * PostgreSQL persistence for transactional state
 * Redis cache-aside reads
 * Payment idempotency for safe duplicate/retry handling
@@ -28,6 +33,12 @@ It demonstrates backend reliability patterns used in payment and commerce system
 * GitHub Actions workflow for automated validation
 * Static frontend demo with live backend mode and browser simulation fallback
 
+Compose currently runs four application processes: the API gateway, Order/Saga,
+Payment, and Inventory services. The gateway owns public JWT authentication;
+Order/Saga owns Kafka workers, outbox publication, and saga state. See
+[`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) and the [integration
+matrix](docs/INTEGRATION_MATRIX.md) for the verified boundary.
+
 ---
 
 ## Architecture
@@ -37,20 +48,22 @@ flowchart TD
     A[Frontend / API Client] --> B[Go API Gateway]
 
     B --> C[Auth Domain]
-    B --> D[Order Domain]
-    B --> E[Inventory Domain]
-    B --> F[Payment Domain]
+    B --> D[Order HTTP Client]
+    B --> E[Inventory HTTP Client]
+    B --> F[Payment HTTP Client]
+    F --> P[Payment Service]
+    E --> I[Inventory Service]
+    D --> O[Order/Saga Service]
 
     C --> DB[(PostgreSQL)]
-    D --> DB
-    E --> DB
-    F --> DB
+    O --> DB
+    I --> DB
+    P --> DB
 
-    D --> R[(Redis Cache)]
-    E --> R
+    O --> R[(Redis Cache)]
 
-    D --> K[Kafka Topic: order.created]
-    K --> W[Kafka Consumer]
+    O --> K[Kafka Topic: order.created]
+    K --> W[Order Kafka Workers]
     W --> S[Saga Orchestrator]
 
     S --> E
@@ -185,7 +198,17 @@ docs/evidence/kafka-smoke-log.txt
 ## Run the Full Stack
 
 ```bash
-docker compose up -d --build
+docker compose up -d --build --wait postgres redis zookeeper kafka
+```
+
+Provision the application topics before starting the API consumer:
+
+```powershell
+foreach ($topic in @("atlaspay.orders", "atlaspay.dlq")) {
+  $partitions = if ($topic -eq "atlaspay.orders") { 16 } else { 1 }
+  docker compose exec -T kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic $topic --partitions $partitions --replication-factor 1
+}
+docker compose up -d --build --wait payment-service inventory-service order-service api-gateway
 ```
 
 Check backend health:
@@ -232,16 +255,26 @@ docker run --rm -v "${PWD}:/src" -w /src golang:1.25 go test ./...
 
 ## Run Smoke Workflows
 
-Start the stack:
-
-```powershell
-docker compose up -d --build
-```
+Start the infrastructure, provision Kafka topics, then start the API as shown
+in [Run the Full Stack](#run-the-full-stack).
 
 Run checkout smoke:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/demo-smoke.ps1
+```
+
+Run the Payment service contract smoke:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/payment-service-contract-smoke.ps1
+```
+
+Run the Inventory and Order/Saga contract smokes:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/inventory-service-contract-smoke.ps1
+powershell -ExecutionPolicy Bypass -File scripts/order-service-contract-smoke.ps1
 ```
 
 Run DLQ smoke:
@@ -250,10 +283,39 @@ Run DLQ smoke:
 powershell -ExecutionPolicy Bypass -File scripts/dlq-smoke.ps1
 ```
 
+Run duplicate-event safety smoke:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/duplicate-event-smoke.ps1
+```
+
+Run outbox recovery smoke:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/outbox-recovery-smoke.ps1
+```
+
+Run saga restart smoke:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/saga-restart-smoke.ps1
+```
+
+Run the authoritative submit-and-completion benchmark:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/completion-drain-load.ps1 `
+  -TargetRPM 1000 -Duration 10s -SkuCount 32 -DrainTimeoutSeconds 60
+```
+
+This separates HTTP acceptance from authoritative PostgreSQL completion. The
+raw local result is recorded under `docs/evidence/`; it is not production SLO
+evidence.
+
 Check Kafka event logs:
 
 ```powershell
-docker compose logs api-gateway | Select-String "event published|event processed"
+docker compose logs order-service | Select-String "event published|event processed"
 ```
 
 Clean up:
@@ -368,9 +430,14 @@ To configure a hosted backend API:
 
 AtlasPay includes k6 scripts for local load testing.
 
-```bash
-k6 run scripts/k6/load-test.js
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/completion-drain-load.ps1 `
+  -TargetRPM 1000 -Duration 10s -SkuCount 32 -DrainTimeoutSeconds 60
 ```
+
+This benchmark separates HTTP acceptance from authoritative PostgreSQL
+completion. `scripts/k6/checkout-load.js` is retained as a diagnostic example
+of per-order polling; do not use its HTTP p95 as completed-checkout evidence.
 
 Recommended performance evidence format:
 
@@ -391,6 +458,9 @@ Commit SHA:
 
 ## Project Structure
 
+The deployed application processes are `cmd/api-gateway`,
+`cmd/order-service`, `cmd/payment-service`, and `cmd/inventory-service`.
+
 ```text
 AtlasPay/
 ├── .github/
@@ -401,7 +471,7 @@ AtlasPay/
 │   ├── auth/                   # Auth domain
 │   ├── order/                  # Order domain
 │   ├── inventory/              # Inventory domain
-│   ├── payment/                # Payment domain
+│   ├── payment/                # Payment domain + local/remote adapters
 │   └── common/
 │       ├── auth/               # JWT/RBAC helpers
 │       ├── cache/              # Redis wrapper

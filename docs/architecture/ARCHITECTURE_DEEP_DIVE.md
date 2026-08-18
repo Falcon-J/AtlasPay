@@ -19,7 +19,10 @@ I implemented the **Saga Pattern** using an Orchestration approach. The system u
 
 ### B. Event-Driven Messaging (Kafka / Zookeeper)
 - **Role:** Handles asynchronous communication. When an API request comes in, the Order Service publishes an `order.created` event to Kafka and immediately returns an HTTP 202 Accepted.
-- **Why Kafka?** It acts as a buffer and a durable log. If the Payment service goes down, the message isn't lost; it waits in the Kafka topic until the service recovers. This provides **resilience**.
+- **Why Kafka?** It acts as a buffer and a durable log for order events. If the
+  Payment service is unavailable after an event is consumed, the current
+  bounded retry path records the failure in the DLQ; replay tooling is still a
+  production hardening task. This distinction is part of the local evidence.
 
 ### C. Caching Strategy (Redis)
 - **Role:** Cache-aside pattern for order status.
