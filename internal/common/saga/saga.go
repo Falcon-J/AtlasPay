@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/atlaspay/platform/internal/common/logger"
@@ -45,6 +46,12 @@ type Step struct {
 	Compensation func(ctx context.Context, data interface{}) error
 }
 
+// Observer persists saga transitions without coupling the orchestrator to a
+// particular database or transport.
+type Observer interface {
+	Observe(ctx context.Context, saga *Saga) error
+}
+
 // StepLog represents a step execution log
 type StepLog struct {
 	StepName  string     `json:"step_name"`
@@ -69,14 +76,25 @@ type Saga struct {
 
 // Orchestrator manages saga execution
 type Orchestrator struct {
-	sagas map[string]*Saga
+	sagas    map[string]*Saga
+	observer Observer
+	mu       sync.RWMutex
 }
 
 // NewOrchestrator creates a new saga orchestrator
-func NewOrchestrator() *Orchestrator {
-	return &Orchestrator{
-		sagas: make(map[string]*Saga),
+func NewOrchestrator(observers ...Observer) *Orchestrator {
+	var observer Observer
+	if len(observers) > 0 {
+		observer = observers[0]
 	}
+	return &Orchestrator{sagas: make(map[string]*Saga), observer: observer}
+}
+
+func (o *Orchestrator) observe(ctx context.Context, saga *Saga) error {
+	if o.observer == nil {
+		return nil
+	}
+	return o.observer.Observe(ctx, saga)
 }
 
 // NewSaga creates a new saga
@@ -96,7 +114,9 @@ func NewSaga(name string, steps []Step) *Saga {
 
 // Execute runs the saga
 func (o *Orchestrator) Execute(ctx context.Context, saga *Saga, initialData interface{}) error {
+	o.mu.Lock()
 	o.sagas[saga.ID] = saga
+	o.mu.Unlock()
 	saga.Data["initial"] = initialData
 	startedAt := time.Now()
 
@@ -115,6 +135,9 @@ func (o *Orchestrator) Execute(ctx context.Context, saga *Saga, initialData inte
 			StartedAt: time.Now(),
 		}
 		saga.StepLogs = append(saga.StepLogs, stepLog)
+		if err := o.observe(ctx, saga); err != nil {
+			return err
+		}
 
 		logger.Info(ctx).
 			Str("saga_id", saga.ID).
@@ -132,6 +155,9 @@ func (o *Orchestrator) Execute(ctx context.Context, saga *Saga, initialData inte
 			saga.StepLogs[i].Error = err.Error()
 			saga.Status = SagaFailed
 			saga.UpdatedAt = time.Now()
+			if err := o.observe(ctx, saga); err != nil {
+				return err
+			}
 
 			logger.Error(ctx).
 				Err(err).
@@ -147,6 +173,9 @@ func (o *Orchestrator) Execute(ctx context.Context, saga *Saga, initialData inte
 
 		saga.StepLogs[i].Status = StepCompleted
 		saga.UpdatedAt = time.Now()
+		if err := o.observe(ctx, saga); err != nil {
+			return err
+		}
 
 		logger.Info(ctx).
 			Str("saga_id", saga.ID).
@@ -156,6 +185,9 @@ func (o *Orchestrator) Execute(ctx context.Context, saga *Saga, initialData inte
 
 	saga.Status = SagaCompleted
 	saga.UpdatedAt = time.Now()
+	if err := o.observe(ctx, saga); err != nil {
+		return err
+	}
 
 	logger.Info(ctx).
 		Str("saga_id", saga.ID).
@@ -188,6 +220,9 @@ func (o *Orchestrator) compensate(ctx context.Context, saga *Saga, failedStep in
 			StartedAt: time.Now(),
 		}
 		saga.StepLogs = append(saga.StepLogs, compLog)
+		if err := o.observe(ctx, saga); err != nil {
+			return err
+		}
 
 		logger.Info(ctx).
 			Str("saga_id", saga.ID).
@@ -202,6 +237,7 @@ func (o *Orchestrator) compensate(ctx context.Context, saga *Saga, failedStep in
 		if err != nil {
 			saga.StepLogs[len(saga.StepLogs)-1].Status = StepFailed
 			saga.StepLogs[len(saga.StepLogs)-1].Error = err.Error()
+			_ = o.observe(ctx, saga)
 
 			logger.Error(ctx).
 				Err(err).
@@ -214,6 +250,9 @@ func (o *Orchestrator) compensate(ctx context.Context, saga *Saga, failedStep in
 		}
 
 		saga.StepLogs[len(saga.StepLogs)-1].Status = StepCompensated
+		if err := o.observe(ctx, saga); err != nil {
+			return err
+		}
 
 		logger.Info(ctx).
 			Str("saga_id", saga.ID).
@@ -223,6 +262,9 @@ func (o *Orchestrator) compensate(ctx context.Context, saga *Saga, failedStep in
 
 	saga.Status = SagaCompensated
 	saga.UpdatedAt = time.Now()
+	if err := o.observe(ctx, saga); err != nil {
+		return err
+	}
 
 	logger.Info(ctx).
 		Str("saga_id", saga.ID).
@@ -233,6 +275,8 @@ func (o *Orchestrator) compensate(ctx context.Context, saga *Saga, failedStep in
 
 // GetSaga retrieves a saga by ID
 func (o *Orchestrator) GetSaga(id string) (*Saga, bool) {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
 	saga, exists := o.sagas[id]
 	return saga, exists
 }

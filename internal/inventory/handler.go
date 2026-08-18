@@ -11,11 +11,11 @@ import (
 
 // Handler handles inventory HTTP requests
 type Handler struct {
-	service *Service
+	service Port
 }
 
 // NewHandler creates a new inventory handler
-func NewHandler(service *Service) *Handler {
+func NewHandler(service Port) *Handler {
 	return &Handler{service: service}
 }
 

@@ -114,6 +114,7 @@ CREATE INDEX IF NOT EXISTS idx_reservations_order_id ON reservations(order_id);
 CREATE INDEX IF NOT EXISTS idx_reservations_sku ON reservations(sku);
 CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
 CREATE INDEX IF NOT EXISTS idx_reservations_expires ON reservations(expires_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_reservations_order_sku ON reservations(order_id, sku);
 
 -- Saga execution logs (for debugging and recovery)
 CREATE TABLE IF NOT EXISTS saga_logs (
@@ -128,6 +129,35 @@ CREATE TABLE IF NOT EXISTS saga_logs (
 
 CREATE INDEX IF NOT EXISTS idx_saga_logs_saga_id ON saga_logs(saga_id);
 CREATE INDEX IF NOT EXISTS idx_saga_logs_status ON saga_logs(status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_saga_logs_identity ON saga_logs(saga_id, step_name, status);
+
+-- Durable lease preventing concurrent in-flight saga replays for one order.
+-- The lease is reclaimable after an Order/Saga process crash.
+CREATE TABLE IF NOT EXISTS saga_claims (
+    order_id VARCHAR(100) PRIMARY KEY,
+    event_id VARCHAR(100) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'running',
+    lease_expires_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_saga_claims_lease ON saga_claims(lease_expires_at);
+
+-- Transactional outbox for events that must follow a database commit
+CREATE TABLE IF NOT EXISTS outbox_events (
+    id VARCHAR(100) PRIMARY KEY,
+    topic VARCHAR(255) NOT NULL,
+    event_type VARCHAR(100) NOT NULL,
+    aggregate_id VARCHAR(100) NOT NULL,
+    payload JSONB NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    claimed_at TIMESTAMP,
+    published_at TIMESTAMP,
+    last_error TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox_events(published_at, claimed_at, created_at);
 
 -- Dead-letter events for async processing failures
 CREATE TABLE IF NOT EXISTS dead_letter_events (

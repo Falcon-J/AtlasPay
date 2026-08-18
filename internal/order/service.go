@@ -2,9 +2,10 @@ package order
 
 import (
 	"context"
+	"encoding/json"
 	stderrors "errors"
-	"fmt"
 	"strings"
+	"time"
 
 	"github.com/atlaspay/platform/internal/common/errors"
 	"github.com/atlaspay/platform/internal/common/kafka"
@@ -12,6 +13,7 @@ import (
 	"github.com/atlaspay/platform/internal/common/metrics"
 	"github.com/atlaspay/platform/internal/common/saga"
 	"github.com/atlaspay/platform/pkg/events"
+	"github.com/google/uuid"
 )
 
 // Service handles order business logic
@@ -35,7 +37,7 @@ func NewServiceWithKafka(repo *Repository, inventorySvc saga.InventoryService, p
 		repo:         repo,
 		inventorySvc: inventorySvc,
 		paymentSvc:   paymentSvc,
-		orchestrator: saga.NewOrchestrator(),
+		orchestrator: saga.NewOrchestrator(repo),
 		producer:     producer,
 		kafkaEnabled: kafkaEnabled,
 	}
@@ -45,6 +47,7 @@ func NewServiceWithKafka(repo *Repository, inventorySvc saga.InventoryService, p
 func (s *Service) CreateOrder(ctx context.Context, userID string, req *CreateOrderRequest) (*Order, error) {
 	// Build order
 	order := &Order{
+		ID:       uuid.New().String(),
 		UserID:   userID,
 		Currency: "USD",
 		Items:    make([]OrderItem, len(req.Items)),
@@ -63,7 +66,16 @@ func (s *Service) CreateOrder(ctx context.Context, userID string, req *CreateOrd
 
 	order.CalculateTotal()
 
-	if err := s.repo.Create(ctx, order); err != nil {
+	var orderEvent *events.Event
+	if s.kafkaEnabled {
+		var err error
+		orderEvent, err = s.newOrderCreatedEvent(order)
+		if err != nil {
+			return nil, errors.ErrInternalServer.WithDetails("failed to build order event")
+		}
+	}
+
+	if err := s.repo.Create(ctx, order, orderEvent); err != nil {
 		logger.Error(ctx).Err(err).Msg("failed to create order")
 		return nil, errors.ErrInternalServer.WithDetails("failed to create order")
 	}
@@ -76,11 +88,6 @@ func (s *Service) CreateOrder(ctx context.Context, userID string, req *CreateOrd
 		Msg("order created")
 
 	if s.kafkaEnabled {
-		if err := s.publishOrderCreated(ctx, order); err != nil {
-			logger.Error(ctx).Err(err).Str("order_id", order.ID).Msg("failed to publish order created event")
-			_ = s.FailOrder(ctx, order.ID)
-			return nil, errors.ErrInternalServer.WithDetails("failed to enqueue order workflow")
-		}
 		metrics.RecordOrder("created", order.TotalPrice)
 		return order, nil
 	}
@@ -92,11 +99,7 @@ func (s *Service) CreateOrder(ctx context.Context, userID string, req *CreateOrd
 	return order, nil
 }
 
-func (s *Service) publishOrderCreated(ctx context.Context, order *Order) error {
-	if s.producer == nil {
-		return fmt.Errorf("kafka producer is not configured")
-	}
-
+func (s *Service) newOrderCreatedEvent(order *Order) (*events.Event, error) {
 	items := make([]events.OrderItem, len(order.Items))
 	for i, item := range order.Items {
 		items[i] = events.OrderItem{
@@ -107,17 +110,61 @@ func (s *Service) publishOrderCreated(ctx context.Context, order *Order) error {
 		}
 	}
 
-	event, err := events.NewEvent(events.OrderCreated, order.ID, order.ID, events.OrderCreatedPayload{
+	return events.NewEvent(events.OrderCreated, order.ID, order.ID, events.OrderCreatedPayload{
 		OrderID:    order.ID,
 		UserID:     order.UserID,
 		Items:      items,
 		TotalPrice: order.TotalPrice,
 		Currency:   order.Currency,
 	})
-	if err != nil {
-		return err
+}
+
+// StartOutboxPublisher delivers committed order events to Kafka and retries
+// failures. The database remains the source of truth for publication state.
+func (s *Service) StartOutboxPublisher(ctx context.Context) {
+	if !s.kafkaEnabled || s.producer == nil {
+		return
 	}
-	return s.producer.Publish(ctx, events.TopicOrders, event)
+
+	go func() {
+		ticker := time.NewTicker(250 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				s.publishOutboxBatch(ctx)
+			}
+		}
+	}()
+}
+
+func (s *Service) publishOutboxBatch(ctx context.Context) {
+	pending, err := s.repo.ClaimPendingOutbox(ctx, 50)
+	if err != nil {
+		logger.Error(ctx).Err(err).Msg("failed to claim outbox events")
+		return
+	}
+
+	for _, pendingEvent := range pending {
+		var event events.Event
+		if err := json.Unmarshal(pendingEvent.Payload, &event); err != nil {
+			logger.Error(ctx).Err(err).Str("event_id", pendingEvent.ID).Msg("invalid outbox event")
+			_ = s.repo.MarkOutboxFailed(ctx, pendingEvent.ID, err)
+			continue
+		}
+
+		if err := s.producer.Publish(ctx, pendingEvent.Topic, &event); err != nil {
+			logger.Error(ctx).Err(err).Str("event_id", pendingEvent.ID).Msg("outbox publish failed")
+			_ = s.repo.MarkOutboxFailed(ctx, pendingEvent.ID, err)
+			continue
+		}
+
+		if err := s.repo.MarkOutboxPublished(ctx, pendingEvent.ID); err != nil {
+			logger.Error(ctx).Err(err).Str("event_id", pendingEvent.ID).Msg("failed to mark outbox event published")
+		}
+	}
 }
 
 // Handle processes order events from Kafka.
@@ -127,6 +174,34 @@ func (s *Service) Handle(ctx context.Context, event *events.Event) error {
 		var payload events.OrderCreatedPayload
 		if err := event.UnmarshalPayload(&payload); err != nil {
 			return err
+		}
+
+		persistedSaga, found, err := s.repo.GetPersistedSaga(ctx, payload.OrderID)
+		if err != nil {
+			return err
+		}
+		if found && (persistedSaga.Status == saga.SagaCompleted || persistedSaga.Status == saga.SagaCompensated) {
+			logger.Info(ctx).
+				Str("order_id", payload.OrderID).
+				Str("saga_status", string(persistedSaga.Status)).
+				Msg("ignoring redelivered terminal order event")
+			return nil
+		}
+
+		eventID := event.ID
+		if eventID == "" {
+			eventID = event.CorrelationID
+		}
+		claimed, err := s.repo.ClaimSaga(ctx, payload.OrderID, eventID)
+		if err != nil {
+			return err
+		}
+		if !claimed {
+			logger.Info(ctx).
+				Str("order_id", payload.OrderID).
+				Str("event_id", eventID).
+				Msg("ignoring duplicate in-flight order event")
+			return nil
 		}
 
 		order, err := s.GetOrder(ctx, payload.OrderID)
@@ -179,6 +254,14 @@ func (s *Service) executeOrderSaga(ctx context.Context, order *Order) error {
 
 // GetSagaState retrieves the current status of a saga for an order
 func (s *Service) GetSagaState(ctx context.Context, orderID string) (*saga.Saga, error) {
+	persisted, found, err := s.repo.GetPersistedSaga(ctx, orderID)
+	if err != nil {
+		return nil, errors.ErrInternalServer.WithDetails(err.Error())
+	}
+	if found {
+		return persisted, nil
+	}
+
 	sg, exists := s.orchestrator.GetSaga(orderID)
 	if !exists {
 		return nil, errors.ErrOrderNotFound

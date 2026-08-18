@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AtlasPay | Saga Tycoon</title>
+    <title>AtlasPay | Checkout Failure Lab</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -40,6 +40,18 @@
         }
 
         .logo { font-weight: 800; font-size: 1.2rem; }
+        .mode-badge {
+            display: inline-block;
+            margin-left: 10px;
+            padding: 5px 9px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            color: var(--warning);
+            font-size: 0.75rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+        .mode-badge.live { color: var(--success); border-color: var(--success); }
         .score-board { display: flex; gap: 30px; font-weight: 600; font-size: 1.2rem; }
         .score-board span { color: var(--success); }
 
@@ -164,6 +176,17 @@
         button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .btn-restock { background: var(--primary); color: white; }
+
+        .explanation {
+            width: 100%;
+            max-width: 800px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px 20px;
+        }
+        .explanation h3 { margin-bottom: 8px; }
+        .explanation p { color: var(--muted); line-height: 1.6; }
         
         .toggles {
             display: flex;
@@ -208,7 +231,11 @@
 <body>
 
     <header>
-        <div class="logo">AtlasPay Saga Tycoon <span id="store-id-el" style="color: var(--muted); font-size: 0.9rem; font-weight: normal; margin-left: 10px;"></span></div>
+        <div class="logo">
+            AtlasPay Checkout Failure Lab
+            <span id="mode-el" class="mode-badge">Selecting mode...</span>
+            <span id="store-id-el" style="color: var(--muted); font-size: 0.9rem; font-weight: normal; margin-left: 10px;"></span>
+        </div>
         <div class="score-board">
             <div>Revenue: $<span id="revenue-el">0</span></div>
             <div>Inventory: <span id="inventory-el" style="color: var(--warning);">10</span></div>
@@ -241,24 +268,29 @@
             </div>
         </div>
 
+        <div class="explanation">
+            <h3>What this demonstrates</h3>
+            <p>This simulator visualizes checkout reliability: order creation, inventory reservation, payment charging, failure compensation, compensation and recovery paths.</p>
+        </div>
+
         <div class="controls">
             <div class="control-group">
-                <h3>Store Management</h3>
-                <button class="btn-restock" onclick="restock()">📦 Buy Wholesale (10 Consoles) - $500</button>
-                <button onclick="buyConsole(false)">🛒 Sell 1 Console (Manual)</button>
+                <h3>Checkout Controls</h3>
+                <button class="btn-restock" onclick="restock()">Seed Inventory / Restock</button>
+                <button onclick="buyConsole(false)">Place Single Checkout</button>
             </div>
             <div class="control-group">
                 <h3>System Simulation</h3>
                 <div class="toggles">
                     <div class="toggle-row">
-                        <span>🤖 AI Shopper Bots (Auto-Buy)</span>
+                        <span>Enable Auto Checkout Traffic</span>
                         <label class="switch">
                             <input type="checkbox" id="bot-toggle">
                             <span class="slider"></span>
                         </label>
                     </div>
                     <div class="toggle-row">
-                        <span style="color: var(--danger);">⚡ Inject Payment Glitch</span>
+                        <span style="color: var(--danger);">Inject Payment Failure</span>
                         <label class="switch">
                             <input type="checkbox" id="glitch-toggle" class="glitch">
                             <span class="slider"></span>
@@ -269,22 +301,27 @@
         </div>
 
         <div id="terminal">
-            <div>[System] Initializing Tycoon Dashboard...</div>
+            <div>[System] Initializing checkout reliability simulator...</div>
         </div>
     </main>
 
     <script>
-        const isLocalHost = window.location.port === '5500' || window.location.port === '5501' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const isFileProtocol = window.location.protocol === 'file:';
-        const API_BASE = (isLocalHost || isFileProtocol) ? 'http://localhost:8080' : window.location.origin;
-        
+        const configuredApiBase = typeof window.ATLASPAY_API_BASE_URL === 'string'
+            ? window.ATLASPAY_API_BASE_URL.trim().replace(/\/+$/, '')
+            : '';
+        const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const API_BASE = configuredApiBase || (isLocalHost ? 'http://localhost:8080' : '');
+
         let jwtToken = null;
         let storeId = "";
         let normalSku = "";
         let glitchSku = "";
         let inventoryCount = 10;
         let revenue = 0;
-        let isProcessing = false; // Prevent overlapping animations for clarity
+        let isProcessing = false;
+        let activeClient = null;
+        let activeMode = "";
+        let demoOrderSequence = 0;
 
         const term = document.getElementById('terminal');
         function log(msg, type='info') {
@@ -295,53 +332,146 @@
             term.scrollTop = term.scrollHeight;
         }
 
-        async function init() {
+        async function fetchWithTimeout(url, options = {}, timeoutMs = 1500) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), timeoutMs);
             try {
-                // Anonymous Tycoon Login
+                return await fetch(url, { ...options, signal: controller.signal });
+            } finally {
+                clearTimeout(timeout);
+            }
+        }
+
+        async function request(path, options = {}) {
+            const response = await fetchWithTimeout(`${API_BASE}${path}`, options, 3000);
+            if (!response.ok) {
+                throw new Error(`${options.method || 'GET'} ${path} returned ${response.status}`);
+            }
+            return response.status === 204 ? null : response.json();
+        }
+
+        const apiClient = {
+            async health() {
+                const response = await fetchWithTimeout(`${API_BASE}/health`);
+                if (!response.ok) throw new Error(`Health check returned ${response.status}`);
+            },
+            async init() {
                 const email = `tycoon-${Date.now()}@atlaspay.local`;
                 const pass = "Password123";
 
-                await fetch(`${API_BASE}/api/auth/register`, {
+                await request('/api/auth/register', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ email, password: pass, first_name: "Store", last_name: "Owner" })
                 });
 
-                const res = await fetch(`${API_BASE}/api/auth/login`, {
+                const login = await request('/api/auth/login', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ email, password: pass })
                 });
-                const data = await res.json();
-                if(data?.data?.access_token) {
-                    jwtToken = data.data.access_token;
-                    
-                    // Generate Unique Store SKUs
-                    if (data.data.user && data.data.user.id) {
-                        storeId = data.data.user.id.substring(0, 8);
-                    } else {
-                        storeId = "TEST-123";
-                    }
-                    normalSku = "CONSOLE-" + storeId;
-                    glitchSku = "FAIL-" + storeId;
-                    
-                    document.getElementById('store-id-el').textContent = `[Store ID: ${storeId}]`;
-                    log(`[System] Connected to Backend. Store ID: ${storeId}`, 'success');
-                    
-                    // Provision Initial Store Inventory via Restock
-                    await fetch(`${API_BASE}/api/inventory/restock`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${jwtToken}`
-                        },
-                        body: JSON.stringify({ sku: normalSku, quantity: 10 })
-                    });
-                    
-                    updateUI();
-                }
-            } catch(e) {
-                log("[System] Backend unreachable. Make sure Docker is running.", 'fail');
+
+                if (!login?.data?.access_token) throw new Error('Login response did not include an access token');
+                jwtToken = login.data.access_token;
+                storeId = login.data.user?.id?.substring(0, 8) || "LIVE";
+                normalSku = `CONSOLE-${storeId}`;
+                glitchSku = `FAIL-${storeId}`;
+                document.getElementById('store-id-el').textContent = `[Store ID: ${storeId}]`;
+                await this.restock();
+            },
+            async checkout(paymentShouldFail) {
+                await request('/api/orders', {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        items: [{ sku: paymentShouldFail ? glitchSku : normalSku, quantity: 1 }]
+                    })
+                });
+                return { paymentFailed: paymentShouldFail };
+            },
+            async restock() {
+                await request('/api/inventory/restock', {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ sku: normalSku, quantity: 10 })
+                });
+                return 10;
+            },
+            async stock() {
+                const data = await request(`/api/inventory/${normalSku}`, {
+                    headers: { 'Authorization': `Bearer ${jwtToken}` }
+                });
+                return data.data.item.quantity - data.data.item.reserved_qty;
+            }
+        };
+
+        const simulatorClient = {
+            async init() {
+                storeId = "BROWSER";
+                normalSku = "SIM-CONSOLE";
+                glitchSku = "SIM-FAIL";
+                document.getElementById('store-id-el').textContent = "[Browser simulation]";
+            },
+            async checkout(paymentShouldFail) {
+                demoOrderSequence++;
+                return {
+                    orderId: `DEMO-${String(demoOrderSequence).padStart(3, '0')}`,
+                    paymentFailed: paymentShouldFail
+                };
+            },
+            async restock() {
+                return 10;
+            },
+            async stock() {
+                return inventoryCount;
+            }
+        };
+
+        function authHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${jwtToken}`
+            };
+        }
+
+        async function activateDemoMode(backendFailed = false) {
+            activeMode = "demo";
+            activeClient = simulatorClient;
+            await simulatorClient.init();
+            const badge = document.getElementById('mode-el');
+            badge.textContent = "Demo Simulation Mode";
+            badge.className = "mode-badge";
+            if (backendFailed) {
+                log("[System] Backend offline. Switched to Demo Simulation Mode.", 'warn');
+            } else {
+                log("[System] No public API URL configured. Using Demo Simulation Mode.", 'warn');
+            }
+            log("[System] Browser simulation visualizes saga behavior; it does not run Kafka, PostgreSQL, or Redis.", 'info');
+            log("[System] Run Docker Compose locally to test Kafka/PostgreSQL/Redis behavior.", 'info');
+            updateUI();
+        }
+
+        async function activateLiveMode() {
+            await apiClient.health();
+            await apiClient.init();
+            activeMode = "live";
+            activeClient = apiClient;
+            const badge = document.getElementById('mode-el');
+            badge.textContent = "Live Backend Mode";
+            badge.className = "mode-badge live";
+            log(`[System] Live backend connected at ${API_BASE}.`, 'success');
+            updateUI();
+        }
+
+        async function init() {
+            if (!API_BASE) {
+                await activateDemoMode(false);
+                return;
+            }
+            try {
+                await activateLiveMode();
+            } catch (error) {
+                await activateDemoMode(true);
             }
         }
 
@@ -351,29 +481,21 @@
         }
 
         async function fetchGlobalStock() {
-            if (!jwtToken || !normalSku || isProcessing) return;
+            if (activeMode !== "live" || !jwtToken || !normalSku || isProcessing) return;
             try {
-                const res = await fetch(`${API_BASE}/api/inventory/${normalSku}`, {
-                    headers: { 'Authorization': `Bearer ${jwtToken}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data?.item?.quantity !== undefined) {
-                        const available = data.item.quantity - data.item.reserved_qty;
-                        if (inventoryCount !== available) {
-                            inventoryCount = available;
-                            updateUI();
-                        }
-                    }
+                const available = await apiClient.stock();
+                if (inventoryCount !== available) {
+                    inventoryCount = available;
+                    updateUI();
                 }
-            } catch(e) {}
+            } catch (error) {
+                await activateDemoMode(true);
+            }
         }
 
-        // Delay helper
         const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-        // Saga Visualizer Animation
-        async function runSagaAnimation(isGlitch) {
+        async function runSagaAnimation(result) {
             isProcessing = true;
             const nOrder = document.getElementById('node-order');
             const nInv = document.getElementById('node-inventory');
@@ -381,64 +503,53 @@
             const p1 = document.getElementById('packet-1');
             const p2 = document.getElementById('packet-2');
 
-            // Reset
             [nOrder, nInv, nPay].forEach(n => n.className = 'node');
 
-            // Step 1: Order
             nOrder.classList.add('active');
-            log("SAGA: Order Created", 'info');
+            log(`SAGA: Order Created${result.orderId ? ` (${result.orderId})` : ''}`, 'info');
             await sleep(400);
 
-            // Step 2: Packet to Inventory
             p1.style.animation = "packetMoveForward 0.6s linear forwards";
             await sleep(600);
             p1.style.animation = "none";
             nOrder.classList.remove('active');
             nInv.classList.add('active');
             log("SAGA: Inventory Reserved", 'info');
-            
-            // Sync Visual Deduct
+
             inventoryCount--;
             updateUI();
-            
             await sleep(400);
 
-            // Step 3: Packet to Payment
             p2.style.animation = "packetMoveForward 0.6s linear forwards";
             await sleep(600);
             p2.style.animation = "none";
             nInv.classList.remove('active');
 
-            if (isGlitch) {
+            if (result.paymentFailed) {
                 nPay.classList.add('error');
-                log("SAGA: Payment FAILED (Network Glitch)", 'fail');
+                log("SAGA: Payment FAILED (injected failure)", 'fail');
                 await sleep(800);
-                
-                // Rollback Phase
-                log("SAGA: Triggering Compensation...", 'warn');
+
+                log("SAGA: Triggering inventory compensation", 'warn');
                 p2.style.animation = "packetMoveBackward 0.6s linear forwards";
                 await sleep(600);
                 p2.style.animation = "none";
                 nPay.classList.remove('error');
-                
                 nInv.classList.add('active');
-                log("SAGA: Inventory Released (Rollback)", 'warn');
-                
-                // Sync Visual Rollback
+                log("SAGA: Inventory Released (Compensation)", 'warn');
+
                 inventoryCount++;
                 updateUI();
-                
+                log("SAGA: Revenue unchanged because payment did not complete", 'warn');
                 await sleep(600);
                 nInv.classList.remove('active');
-
             } else {
                 nPay.classList.add('success');
-                log("SAGA: Payment Processed", 'success');
-                
-                // Sync Visual Revenue
+                log("SAGA: Payment Charged", 'success');
+                log("SAGA: Inventory reservation committed", 'success');
+
                 revenue += 499;
                 updateUI();
-                
                 await sleep(800);
                 nPay.classList.remove('success');
             }
@@ -447,58 +558,46 @@
         }
 
         async function buyConsole(isBot = false) {
-            if(!jwtToken || inventoryCount <= 0 || isProcessing || !normalSku) return;
+            if (!activeClient || isProcessing) return;
+            if (inventoryCount <= 0) {
+                log("[System] Checkout rejected: no inventory available.", "fail");
+                return;
+            }
 
             const isGlitch = document.getElementById('glitch-toggle').checked;
-            const sku = isGlitch ? glitchSku : normalSku;
-            
-            // Run visual animation asynchronously so we don't block
-            runSagaAnimation(isGlitch);
-
             try {
-                await fetch(`${API_BASE}/api/orders`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${jwtToken}`
-                    },
-                    body: JSON.stringify({
-                        items: [{ sku: sku, quantity: 1 }]
-                    })
-                });
-            } catch(e) {
-                log("[System] Order API Error.", "fail");
+                const result = await activeClient.checkout(isGlitch);
+                await runSagaAnimation(result);
+            } catch (error) {
+                if (activeMode === "live") {
+                    await activateDemoMode(true);
+                    const result = await simulatorClient.checkout(isGlitch);
+                    await runSagaAnimation(result);
+                } else {
+                    log("[System] Checkout simulation failed.", "fail");
+                }
             }
         }
 
         async function restock() {
-            if(!jwtToken || revenue < 500) {
-                log("[Tycoon] Not enough revenue to buy wholesale stock! Need $500.", "fail");
-                return;
-            }
+            if (!activeClient || isProcessing) return;
 
             try {
-                revenue -= 500;
+                inventoryCount += await activeClient.restock();
                 updateUI();
-
-                await fetch(`${API_BASE}/api/inventory/restock`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${jwtToken}`
-                    },
-                    body: JSON.stringify({ sku: normalSku, quantity: 10 })
-                });
-
-                inventoryCount += 10;
-                updateUI();
-                log("[Tycoon] Restocked 10 Consoles!", "success");
-            } catch(e) {
-                log("[Tycoon] Restock failed.", "fail");
+                log("[System] Inventory seeded with 10 units.", "success");
+            } catch (error) {
+                if (activeMode === "live") {
+                    await activateDemoMode(true);
+                    inventoryCount += await simulatorClient.restock();
+                    updateUI();
+                    log("[System] Inventory seeded with 10 simulated units.", "success");
+                } else {
+                    log("[System] Inventory restock failed.", "fail");
+                }
             }
         }
 
-        // Bot Logic
         setInterval(() => {
             if(document.getElementById('bot-toggle').checked) {
                 if (inventoryCount > 0 && !isProcessing) {
@@ -507,7 +606,6 @@
             }
         }, 3000);
 
-        // Start Multiplayer Sync
         setInterval(fetchGlobalStock, 1500);
 
         init();

@@ -81,6 +81,31 @@ func (r *Repository) ReserveStock(ctx context.Context, orderID string, items []R
 			return nil, err
 		}
 
+		// A redelivered order event must not reserve the same SKU twice.
+		// The inventory row lock makes this check serialize with another
+		// reservation for the same SKU; the unique index is the database guard.
+		var existingStatus string
+		var existingQuantity int
+		err = tx.QueryRow(ctx, `
+			SELECT status, quantity FROM reservations
+			WHERE order_id = $1 AND sku = $2
+		`, orderID, reqItem.SKU).Scan(&existingStatus, &existingQuantity)
+		if err == nil {
+			if existingStatus != "reserved" && existingStatus != "committed" {
+				return nil, fmt.Errorf("reservation for %s is already %s", reqItem.SKU, existingStatus)
+			}
+			reservations = append(reservations, &Reservation{
+				OrderID:  orderID,
+				SKU:      reqItem.SKU,
+				Quantity: existingQuantity,
+				Status:   existingStatus,
+			})
+			continue
+		}
+		if err != pgx.ErrNoRows {
+			return nil, err
+		}
+
 		// Check availability
 		available := item.Quantity - item.ReservedQty
 		if available < reqItem.Quantity {
@@ -293,7 +318,7 @@ func (r *Repository) UpdateStock(ctx context.Context, sku string, quantity int) 
 	if err != nil {
 		return err
 	}
-	
+
 	r.invalidateCache(ctx, sku)
 	return nil
 }

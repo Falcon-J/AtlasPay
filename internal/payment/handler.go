@@ -12,11 +12,11 @@ import (
 
 // Handler handles payment HTTP requests
 type Handler struct {
-	service *Service
+	service Port
 }
 
 // NewHandler creates a new payment handler
-func NewHandler(service *Service) *Handler {
+func NewHandler(service Port) *Handler {
 	return &Handler{service: service}
 }
 

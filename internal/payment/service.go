@@ -27,20 +27,6 @@ func (s *Service) ProcessPaymentV2(ctx context.Context, userID string, req *Crea
 }
 
 func (s *Service) processPaymentInternal(ctx context.Context, userID string, req *CreatePaymentRequest) (*Payment, error) {
-	// Check for existing payment with same idempotency key (idempotency check)
-	existing, err := s.repo.GetByIdempotencyKey(ctx, req.IdempotencyKey)
-	if err != nil {
-		return nil, errors.ErrInternalServer.WithDetails(err.Error())
-	}
-	if existing != nil {
-		// Return existing payment (idempotent response)
-		logger.Info(ctx).
-			Str("payment_id", existing.ID).
-			Str("idempotency_key", req.IdempotencyKey).
-			Msg("returning existing payment (idempotent request)")
-		return existing, nil
-	}
-
 	// Create payment record
 	payment := &Payment{
 		OrderID:        req.OrderID,
@@ -51,8 +37,29 @@ func (s *Service) processPaymentInternal(ctx context.Context, userID string, req
 		IdempotencyKey: req.IdempotencyKey,
 	}
 
-	if err := s.repo.Create(ctx, payment); err != nil {
+	created, err := s.repo.CreateIfAbsent(ctx, payment)
+	if err != nil {
 		return nil, errors.ErrInternalServer.WithDetails(err.Error())
+	}
+	if !created {
+		existing, err := s.repo.GetByIdempotencyKey(ctx, req.IdempotencyKey)
+		if err != nil {
+			return nil, errors.ErrInternalServer.WithDetails(err.Error())
+		}
+		if existing == nil {
+			return nil, errors.ErrInternalServer.WithDetails("idempotent payment disappeared after conflict")
+		}
+		if existing.OrderID != req.OrderID || existing.UserID != userID ||
+			existing.Amount != req.Amount || existing.Currency != req.Currency ||
+			existing.PaymentMethod != req.PaymentMethod {
+			return nil, errors.ErrConflict.WithDetails("idempotency key is already used for another payment")
+		}
+
+		logger.Info(ctx).
+			Str("payment_id", existing.ID).
+			Str("idempotency_key", req.IdempotencyKey).
+			Msg("returning existing payment (idempotent request)")
+		return existing, nil
 	}
 
 	// Simulate payment processing (in production, call payment gateway)
@@ -71,7 +78,7 @@ func (s *Service) processPaymentInternal(ctx context.Context, userID string, req
 			Str("order_id", payment.OrderID).
 			Float64("amount", payment.Amount).
 			Msg("payment completed successfully")
-			
+
 		metrics.RecordPayment("success", payment.PaymentMethod, duration)
 	} else {
 		failureReason := "Payment declined by processor"

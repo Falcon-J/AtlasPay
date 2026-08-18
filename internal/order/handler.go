@@ -13,11 +13,11 @@ import (
 
 // Handler handles order HTTP requests
 type Handler struct {
-	service *Service
+	service Port
 }
 
 // NewHandler creates a new order handler
-func NewHandler(service *Service) *Handler {
+func NewHandler(service Port) *Handler {
 	return &Handler{service: service}
 }
 

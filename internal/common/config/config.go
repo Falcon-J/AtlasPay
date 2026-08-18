@@ -43,6 +43,7 @@ type KafkaConfig struct {
 	Brokers []string
 	GroupID string
 	Enabled bool
+	Workers int
 }
 
 type JWTConfig struct {
@@ -80,6 +81,7 @@ func Load() *Config {
 			Brokers: []string{getEnv("KAFKA_BROKERS", "127.0.0.1:9092")},
 			GroupID: getEnv("KAFKA_GROUP_ID", "atlaspay"),
 			Enabled: getBoolEnv("KAFKA_ENABLED", false),
+			Workers: getIntEnv("KAFKA_WORKERS", 1),
 		},
 		JWT: JWTConfig{
 			AccessSecret:  getEnv("JWT_ACCESS_SECRET", "atlaspay-access-secret-change-in-prod"),

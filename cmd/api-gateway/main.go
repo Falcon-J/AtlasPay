@@ -77,45 +77,66 @@ func main() {
 		cfg.JWT.RefreshExpiry,
 	)
 
-	// Initialize repositories
+	// Initialize the gateway-owned repository and remote bounded-context ports.
 	authRepo := auth.NewRepository(db.Pool)
-	orderRepo := order.NewRepository(db.Pool, redisCache)
-	paymentRepo := payment.NewRepository(db.Pool)
-	inventoryRepo := inventory.NewRepository(db.Pool, redisCache)
 	dlqRepo := dlq.NewRepository(db.Pool)
-
-	var kafkaProducer *kafka.Producer
-	if cfg.Kafka.Enabled {
-		kafkaProducer = kafka.NewProducer(cfg.Kafka.Brokers)
-		defer kafkaProducer.Close()
-	}
 
 	// Initialize services
 	authService := auth.NewService(authRepo, jwtManager, cfg.JWT.RefreshExpiry)
-	paymentService := payment.NewService(paymentRepo)
-	inventoryService := inventory.NewService(inventoryRepo)
-	orderService := order.NewServiceWithKafka(orderRepo, inventoryService, paymentService, kafkaProducer, cfg.Kafka.Enabled)
-
-	var orderConsumer *kafka.Consumer
-	if cfg.Kafka.Enabled {
-		orderConsumer = kafka.NewConsumerWithOptions(
-			cfg.Kafka.Brokers,
-			"atlaspay.orders",
-			cfg.Kafka.GroupID+"-orders",
-			orderService,
-			dlqRepo,
-			kafkaProducer,
-		)
-		defer orderConsumer.Close()
-		go orderConsumer.Start(ctx)
-		logger.Info(ctx).Str("topic", "atlaspay.orders").Msg("Kafka order worker started")
+	var paymentPort payment.Port
+	if paymentURL := os.Getenv("PAYMENT_SERVICE_URL"); paymentURL != "" {
+		paymentPort = payment.NewClient(paymentURL, os.Getenv("PAYMENT_SERVICE_TOKEN"))
+		logger.Info(ctx).Str("url", paymentURL).Msg("using standalone payment service")
+	} else {
+		paymentPort = payment.NewService(payment.NewRepository(db.Pool))
 	}
+	var inventoryPort inventory.Port
+	if inventoryURL := os.Getenv("INVENTORY_SERVICE_URL"); inventoryURL != "" {
+		inventoryPort = inventory.NewClient(inventoryURL, os.Getenv("INVENTORY_SERVICE_TOKEN"))
+		logger.Info(ctx).Str("url", inventoryURL).Msg("using standalone inventory service")
+	} else {
+		inventoryPort = inventory.NewService(inventory.NewRepository(db.Pool, redisCache))
+	}
+
+	var orderPort order.Port
+	var orderConsumers []*kafka.Consumer
+	if orderURL := os.Getenv("ORDER_SERVICE_URL"); orderURL != "" {
+		orderPort = order.NewClient(orderURL, os.Getenv("ORDER_SERVICE_TOKEN"))
+		logger.Info(ctx).Str("url", orderURL).Msg("using standalone order service")
+	} else {
+		var kafkaProducer *kafka.Producer
+		dlqRepo := dlq.NewRepository(db.Pool)
+		if cfg.Kafka.Enabled {
+			kafkaProducer = kafka.NewProducer(cfg.Kafka.Brokers)
+			defer kafkaProducer.Close()
+		}
+		orderService := order.NewServiceWithKafka(order.NewRepository(db.Pool, redisCache), inventoryPort, paymentPort, kafkaProducer, cfg.Kafka.Enabled)
+		orderPort = orderService
+		if cfg.Kafka.Enabled {
+			workerCount := cfg.Kafka.Workers
+			if workerCount < 1 {
+				workerCount = 1
+			}
+			for i := 0; i < workerCount; i++ {
+				orderConsumer := kafka.NewConsumerWithOptions(cfg.Kafka.Brokers, "atlaspay.orders", cfg.Kafka.GroupID+"-orders", orderService, dlqRepo, kafkaProducer)
+				orderConsumers = append(orderConsumers, orderConsumer)
+				go orderConsumer.Start(ctx)
+			}
+			orderService.StartOutboxPublisher(ctx)
+			logger.Info(ctx).Str("topic", "atlaspay.orders").Int("workers", workerCount).Msg("Kafka order workers started")
+		}
+	}
+	defer func() {
+		for _, consumer := range orderConsumers {
+			_ = consumer.Close()
+		}
+	}()
 
 	// Initialize handlers
 	authHandler := auth.NewHandler(authService)
-	orderHandler := order.NewHandler(orderService)
-	paymentHandler := payment.NewHandler(paymentService)
-	inventoryHandler := inventory.NewHandler(inventoryService)
+	orderHandler := order.NewHandler(orderPort)
+	paymentHandler := payment.NewHandler(paymentPort)
+	inventoryHandler := inventory.NewHandler(inventoryPort)
 
 	// Initialize rate limiter
 	rateLimiter := middleware.NewRateLimiter(cfg.Server.RateLimit, time.Minute, cfg.Server.RateBurst)

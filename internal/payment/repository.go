@@ -19,19 +19,22 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
-// Create creates a new payment
-func (r *Repository) Create(ctx context.Context, payment *Payment) error {
+// CreateIfAbsent creates a payment unless the idempotency key already exists.
+// The database constraint is the concurrency boundary; callers must not rely
+// on a preceding read to decide whether the insert is safe.
+func (r *Repository) CreateIfAbsent(ctx context.Context, payment *Payment) (bool, error) {
 	payment.ID = uuid.New().String()
 	payment.Status = PaymentProcessing
 	payment.CreatedAt = time.Now()
 	payment.UpdatedAt = time.Now()
 
-	_, err := r.db.Exec(ctx, `
+	result, err := r.db.Exec(ctx, `
 		INSERT INTO payments (id, order_id, user_id, amount, currency, status, payment_method, idempotency_key, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		ON CONFLICT (idempotency_key) DO NOTHING
 	`, payment.ID, payment.OrderID, payment.UserID, payment.Amount, payment.Currency, payment.Status, payment.PaymentMethod, payment.IdempotencyKey, payment.CreatedAt, payment.UpdatedAt)
 
-	return err
+	return result.RowsAffected() == 1, err
 }
 
 // GetByID retrieves a payment by ID
