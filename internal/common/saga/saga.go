@@ -2,7 +2,6 @@ package saga
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -279,10 +278,4 @@ func (o *Orchestrator) GetSaga(id string) (*Saga, bool) {
 	defer o.mu.RUnlock()
 	saga, exists := o.sagas[id]
 	return saga, exists
-}
-
-// ToJSON returns the saga as JSON (for debugging/logging)
-func (s *Saga) ToJSON() string {
-	data, _ := json.MarshalIndent(s, "", "  ")
-	return string(data)
 }

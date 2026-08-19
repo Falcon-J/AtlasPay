@@ -47,11 +47,6 @@ func Error(ctx context.Context) *zerolog.Event {
 	return log.Error().Str("correlation_id", GetCorrelationID(ctx))
 }
 
-// Debug logs a debug message
-func Debug(ctx context.Context) *zerolog.Event {
-	return log.Debug().Str("correlation_id", GetCorrelationID(ctx))
-}
-
 // Warn logs a warning message
 func Warn(ctx context.Context) *zerolog.Event {
 	return log.Warn().Str("correlation_id", GetCorrelationID(ctx))
@@ -60,9 +55,4 @@ func Warn(ctx context.Context) *zerolog.Event {
 // Fatal logs a fatal message and exits
 func Fatal(ctx context.Context) *zerolog.Event {
 	return log.Fatal().Str("correlation_id", GetCorrelationID(ctx))
-}
-
-// WithField returns a new event with the given field
-func WithField(ctx context.Context, key string, value interface{}) *zerolog.Event {
-	return log.Info().Str("correlation_id", GetCorrelationID(ctx)).Interface(key, value)
 }

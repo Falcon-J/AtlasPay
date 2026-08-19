@@ -118,11 +118,6 @@ func (s *Service) Logout(ctx context.Context, refreshToken string) error {
 	return s.repo.RevokeRefreshToken(ctx, refreshToken)
 }
 
-// LogoutAll revokes all tokens for a user
-func (s *Service) LogoutAll(ctx context.Context, userID string) error {
-	return s.repo.RevokeAllUserTokens(ctx, userID)
-}
-
 func (s *Service) generateAuthResponse(ctx context.Context, user *User) (*AuthResponse, error) {
 	// Generate token pair
 	tokens, err := s.jwtManager.GenerateTokenPair(user.ID, user.Email, commonauth.Role(user.Role))

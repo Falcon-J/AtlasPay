@@ -131,11 +131,6 @@ func (s *Service) GetPayment(ctx context.Context, id string) (*Payment, error) {
 	return payment, nil
 }
 
-// GetPaymentByOrder retrieves payment for an order
-func (s *Service) GetPaymentByOrder(ctx context.Context, orderID string) (*Payment, error) {
-	return s.repo.GetByOrderID(ctx, orderID)
-}
-
 // RefundPayment processes a refund
 func (s *Service) RefundPayment(ctx context.Context, id string, reason string) (*Payment, error) {
 	payment, err := s.GetPayment(ctx, id)

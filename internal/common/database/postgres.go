@@ -39,6 +39,33 @@ func NewPostgresDB(ctx context.Context, databaseURL string) (*PostgresDB, error)
 	return &PostgresDB{Pool: pool}, nil
 }
 
+// ConnectWithRetry connects to PostgreSQL with the retry policy shared by the
+// standalone application services.
+func ConnectWithRetry(ctx context.Context, databaseURL string) (*PostgresDB, error) {
+	return connectWithRetry(ctx, databaseURL, NewPostgresDB)
+}
+
+func connectWithRetry(
+	ctx context.Context,
+	databaseURL string,
+	connect func(context.Context, string) (*PostgresDB, error),
+) (*PostgresDB, error) {
+	var lastErr error
+	for attempt := 1; attempt <= 10; attempt++ {
+		db, err := connect(ctx, databaseURL)
+		if err == nil {
+			return db, nil
+		}
+		lastErr = err
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(time.Duration(attempt) * time.Second):
+		}
+	}
+	return nil, lastErr
+}
+
 // Close closes the database connection pool
 func (db *PostgresDB) Close() {
 	db.Pool.Close()

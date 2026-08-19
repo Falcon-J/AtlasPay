@@ -96,19 +96,3 @@ func (r *Repository) RevokeRefreshToken(ctx context.Context, token string) error
 	`, token)
 	return err
 }
-
-// RevokeAllUserTokens revokes all refresh tokens for a user (logout from all devices)
-func (r *Repository) RevokeAllUserTokens(ctx context.Context, userID string) error {
-	_, err := r.db.Exec(ctx, `
-		UPDATE refresh_tokens SET revoked = true WHERE user_id = $1
-	`, userID)
-	return err
-}
-
-// CleanupExpiredTokens removes expired tokens (called periodically)
-func (r *Repository) CleanupExpiredTokens(ctx context.Context) error {
-	_, err := r.db.Exec(ctx, `
-		DELETE FROM refresh_tokens WHERE expires_at < NOW() OR revoked = true
-	`)
-	return err
-}

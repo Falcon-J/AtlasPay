@@ -27,7 +27,7 @@ func main() {
 	defer stop()
 
 	cfg := config.Load()
-	db, err := connectWithRetry(ctx, cfg.Database.DatabaseURL())
+	db, err := database.ConnectWithRetry(ctx, cfg.Database.DatabaseURL())
 	if err != nil {
 		logger.Fatal(ctx).Err(err).Msg("failed to connect to database")
 	}
@@ -95,21 +95,4 @@ func main() {
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Fatal(ctx).Err(err).Msg("order service failed")
 	}
-}
-
-func connectWithRetry(ctx context.Context, databaseURL string) (*database.PostgresDB, error) {
-	var lastErr error
-	for attempt := 1; attempt <= 10; attempt++ {
-		db, err := database.NewPostgresDB(ctx, databaseURL)
-		if err == nil {
-			return db, nil
-		}
-		lastErr = err
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(time.Duration(attempt) * time.Second):
-		}
-	}
-	return nil, lastErr
 }

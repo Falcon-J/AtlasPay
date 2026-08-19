@@ -26,11 +26,6 @@ type Service struct {
 	kafkaEnabled bool
 }
 
-// NewService creates a new order service
-func NewService(repo *Repository, inventorySvc saga.InventoryService, paymentSvc saga.PaymentService) *Service {
-	return NewServiceWithKafka(repo, inventorySvc, paymentSvc, nil, false)
-}
-
 // NewServiceWithKafka creates a new order service with optional Kafka order processing.
 func NewServiceWithKafka(repo *Repository, inventorySvc saga.InventoryService, paymentSvc saga.PaymentService, producer *kafka.Producer, kafkaEnabled bool) *Service {
 	return &Service{
@@ -325,19 +320,4 @@ func (s *Service) CancelOrder(ctx context.Context, id string) error {
 // FailOrder marks an order as failed
 func (s *Service) FailOrder(ctx context.Context, id string) error {
 	return s.UpdateOrderStatus(ctx, id, StatusFailed)
-}
-
-// MarkPaid marks an order as paid
-func (s *Service) MarkPaid(ctx context.Context, id string) error {
-	return s.UpdateOrderStatus(ctx, id, StatusPaid)
-}
-
-// MarkShipped marks an order as shipped
-func (s *Service) MarkShipped(ctx context.Context, id string) error {
-	return s.UpdateOrderStatus(ctx, id, StatusShipped)
-}
-
-// MarkDelivered marks an order as delivered
-func (s *Service) MarkDelivered(ctx context.Context, id string) error {
-	return s.UpdateOrderStatus(ctx, id, StatusDelivered)
 }

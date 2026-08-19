@@ -27,13 +27,6 @@ func JSON(w http.ResponseWriter, status int, data interface{}) {
 	json.NewEncoder(w).Encode(Response{Success: true, Data: data})
 }
 
-// JSONWithMeta writes a JSON response with pagination metadata
-func JSONWithMeta(w http.ResponseWriter, status int, data interface{}, meta *Meta) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(Response{Success: true, Data: data, Meta: meta})
-}
-
 // NoContent writes a 204 No Content response
 func NoContent(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)

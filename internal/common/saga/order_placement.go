@@ -2,7 +2,6 @@ package saga
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/atlaspay/platform/internal/common/logger"
 )
@@ -142,22 +141,4 @@ func OrderPlacementSaga(
 
 	saga := NewSaga("order_placement", steps)
 	return saga
-}
-
-// OrderPlacementSagaTest is for testing the saga flow
-type OrderPlacementSagaTest struct{}
-
-func (s *OrderPlacementSagaTest) TestHappyPath() error {
-	// Simulate successful flow
-	return nil
-}
-
-func (s *OrderPlacementSagaTest) TestInventoryFailure() error {
-	// Simulate inventory failure - order should be cancelled
-	return fmt.Errorf("insufficient stock")
-}
-
-func (s *OrderPlacementSagaTest) TestPaymentFailure() error {
-	// Simulate payment failure - inventory should be released
-	return fmt.Errorf("payment declined")
 }

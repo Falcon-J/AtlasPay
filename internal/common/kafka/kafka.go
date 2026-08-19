@@ -119,11 +119,6 @@ func (f EventHandlerFunc) Handle(ctx context.Context, event *events.Event) error
 	return f(ctx, event)
 }
 
-// NewConsumer creates a new Kafka consumer
-func NewConsumer(brokers []string, topic, groupID string, handler EventHandler) *Consumer {
-	return NewConsumerWithOptions(brokers, topic, groupID, handler, nil, nil)
-}
-
 // NewConsumerWithOptions creates a Kafka consumer with retry and DLQ support.
 func NewConsumerWithOptions(
 	brokers []string,
