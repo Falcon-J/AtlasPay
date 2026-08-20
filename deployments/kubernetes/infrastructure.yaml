@@ -11,7 +11,11 @@ data:
   redis_port: "6379"
   kafka_brokers: "kafka-service:9092"
   kafka_group_id: "atlaspay"
-  kafka_enabled: "true"
+  kafka_enabled: "false"
+  kafka_workers: "8"
+  order_service_url: "http://order-service:8083"
+  payment_service_url: "http://payment-service:8081"
+  inventory_service_url: "http://inventory-service:8082"
 ---
 apiVersion: v1
 kind: Secret
@@ -23,6 +27,9 @@ stringData:
   db_password: "atlaspay-prod-password-change-me"
   jwt_access_secret: "atlaspay-access-secret-prod-change-me"
   jwt_refresh_secret: "atlaspay-refresh-secret-prod-change-me"
+  order_service_token: "atlaspay-order-internal-token-change-me"
+  payment_service_token: "atlaspay-payment-internal-token-change-me"
+  inventory_service_token: "atlaspay-inventory-internal-token-change-me"
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

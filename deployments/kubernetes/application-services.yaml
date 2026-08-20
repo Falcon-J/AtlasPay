@@ -1,0 +1,380 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  labels:
+    app: payment-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+        tier: backend
+    spec:
+      containers:
+      - name: payment-service
+        image: atlaspay/payment-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8081
+        env:
+        - name: PAYMENT_SERVICE_PORT
+          value: "8081"
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: db_host
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: db_port
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: atlaspay-secrets
+              key: db_user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: atlaspay-secrets
+              key: db_password
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: db_name
+        - name: DB_SSLMODE
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: db_sslmode
+        - name: PAYMENT_SERVICE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: atlaspay-secrets
+              key: payment_service_token
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 5
+          timeoutSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  labels:
+    app: payment-service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8081"
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8081
+    targetPort: http
+  selector:
+    app: payment-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-service
+  labels:
+    app: inventory-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: inventory-service
+  template:
+    metadata:
+      labels:
+        app: inventory-service
+        tier: backend
+    spec:
+      containers:
+      - name: inventory-service
+        image: atlaspay/inventory-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8082
+        env:
+        - name: INVENTORY_SERVICE_PORT
+          value: "8082"
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: db_host
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: db_port
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: atlaspay-secrets
+              key: db_user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: atlaspay-secrets
+              key: db_password
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: db_name
+        - name: DB_SSLMODE
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: db_sslmode
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: redis_host
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: redis_port
+        - name: INVENTORY_SERVICE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: atlaspay-secrets
+              key: inventory_service_token
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 5
+          timeoutSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory-service
+  labels:
+    app: inventory-service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8082"
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8082
+    targetPort: http
+  selector:
+    app: inventory-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  labels:
+    app: order-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+        tier: backend
+    spec:
+      containers:
+      - name: order-service
+        image: atlaspay/order-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8083
+        env:
+        - name: ORDER_SERVICE_PORT
+          value: "8083"
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: db_host
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: db_port
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: atlaspay-secrets
+              key: db_user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: atlaspay-secrets
+              key: db_password
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: db_name
+        - name: DB_SSLMODE
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: db_sslmode
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: redis_host
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: redis_port
+        - name: KAFKA_BROKERS
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: kafka_brokers
+        - name: KAFKA_ENABLED
+          value: "true"
+        - name: KAFKA_GROUP_ID
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: kafka_group_id
+        - name: KAFKA_WORKERS
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: kafka_workers
+        - name: PAYMENT_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: payment_service_url
+        - name: PAYMENT_SERVICE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: atlaspay-secrets
+              key: payment_service_token
+        - name: INVENTORY_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: inventory_service_url
+        - name: INVENTORY_SERVICE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: atlaspay-secrets
+              key: inventory_service_token
+        - name: ORDER_SERVICE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: atlaspay-secrets
+              key: order_service_token
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 5
+          timeoutSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  labels:
+    app: order-service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8083"
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8083
+    targetPort: http
+  selector:
+    app: order-service

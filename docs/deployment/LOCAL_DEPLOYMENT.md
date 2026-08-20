@@ -26,6 +26,7 @@ minikube addons enable ingress
 # Deploy AtlasPay
 kubectl apply -f deployments/kubernetes/infrastructure.yaml
 kubectl apply -f deployments/kubernetes/api-gateway.yaml
+kubectl apply -f deployments/kubernetes/application-services.yaml
 
 # Get URL
 minikube service api-gateway --url
@@ -37,6 +38,12 @@ minikube service api-gateway --url
 - ✅ kubectl commands work
 - ✅ Perfect for screenshots
 - ✅ No internet needed
+
+The Kubernetes files are suitable for local topology validation only. They
+still use placeholder secret values and `:latest` image references; do not
+represent a production deployment until external secret management, immutable
+images, migrations, topic provisioning, and failover/rollback validation are
+complete.
 
 ### Screenshots for Resume:
 ```bash

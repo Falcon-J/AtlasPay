@@ -33,6 +33,21 @@ spec:
             configMapKeyRef:
               name: atlaspay-config
               key: db_host
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: db_port
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: db_name
+        - name: DB_SSLMODE
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: db_sslmode
         - name: DB_USER
           valueFrom:
             secretKeyRef:
@@ -68,6 +83,36 @@ spec:
             configMapKeyRef:
               name: atlaspay-config
               key: kafka_group_id
+        - name: PAYMENT_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: payment_service_url
+        - name: PAYMENT_SERVICE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: atlaspay-secrets
+              key: payment_service_token
+        - name: INVENTORY_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: inventory_service_url
+        - name: INVENTORY_SERVICE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: atlaspay-secrets
+              key: inventory_service_token
+        - name: ORDER_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: order_service_url
+        - name: ORDER_SERVICE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: atlaspay-secrets
+              key: order_service_token
         - name: JWT_ACCESS_SECRET
           valueFrom:
             secretKeyRef:

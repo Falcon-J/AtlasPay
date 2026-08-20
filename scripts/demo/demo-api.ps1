@@ -1,5 +1,5 @@
 # AtlasPay API Demo Script (Windows PowerShell)
-# Demonstrates the complete order → payment → inventory saga workflow
+# Demonstrates the complete order  payment  inventory saga workflow
 # Usage: .\demo-api.ps1 -ApiUrl "http://localhost:8080"
 
 param(
@@ -11,20 +11,20 @@ $timestamp = [int64](([datetime]::UtcNow - [datetime]'1970-01-01').TotalMillisec
 $userEmail = "demo-user-${timestamp}@atlaspay.local"
 $userPassword = "DemoPass@123456"
 
-Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "" -ForegroundColor Cyan
 Write-Host "  AtlasPay Distributed Payment System - Live API Demo (Windows)" -ForegroundColor Green
-Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "📍 API Endpoint: $ApiUrl" -ForegroundColor Yellow
-Write-Host "👤 Demo User: $userEmail" -ForegroundColor Yellow
+Write-Host " API Endpoint: $ApiUrl" -ForegroundColor Yellow
+Write-Host " Demo User: $userEmail" -ForegroundColor Yellow
 Write-Host ""
 
 function Section {
     param([string]$Title)
     Write-Host ""
-    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Blue
+    Write-Host "" -ForegroundColor Blue
     Write-Host $Title -ForegroundColor Green
-    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Blue
+    Write-Host "" -ForegroundColor Blue
 }
 
 function RunApi {
@@ -37,7 +37,7 @@ function RunApi {
     )
     
     Write-Host ""
-    Write-Host "📤 $Description" -ForegroundColor Yellow
+    Write-Host " $Description" -ForegroundColor Yellow
     Write-Host "Endpoint: $Method $Endpoint" -ForegroundColor Gray
     Write-Host ""
     
@@ -74,10 +74,10 @@ $health | ConvertTo-Json -Depth 10
 Write-Host ""
 
 if ($health.db -eq "up" -and $health.cache -eq "up") {
-    Write-Host "✅ Database: up" -ForegroundColor Green
-    Write-Host "✅ Cache (Redis): up" -ForegroundColor Green
+    Write-Host " Database: up" -ForegroundColor Green
+    Write-Host " Cache (Redis): up" -ForegroundColor Green
 } else {
-    Write-Host "❌ System not healthy" -ForegroundColor Red
+    Write-Host " System not healthy" -ForegroundColor Red
     exit 1
 }
 
@@ -97,10 +97,10 @@ $regResponse = RunApi "POST" "/api/auth/register" $regBody $null "Register new u
 
 if ($regResponse.status -and $regResponse.status -eq "success") {
     Write-Host ""
-    Write-Host "✅ User registered successfully" -ForegroundColor Green
+    Write-Host " User registered successfully" -ForegroundColor Green
     Write-Host "   Email: $userEmail" -ForegroundColor Gray
 } else {
-    Write-Host "❌ Registration failed" -ForegroundColor Red
+    Write-Host " Registration failed" -ForegroundColor Red
     exit 1
 }
 
@@ -121,12 +121,12 @@ $accessToken = $loginResponse.data.access_token
 $refreshToken = $loginResponse.data.refresh_token
 
 if (-not $accessToken) {
-    Write-Host "❌ Login failed" -ForegroundColor Red
+    Write-Host " Login failed" -ForegroundColor Red
     exit 1
 }
 
 Write-Host ""
-Write-Host "✅ Authentication successful" -ForegroundColor Green
+Write-Host " Authentication successful" -ForegroundColor Green
 Write-Host "   Access Token: $($accessToken.Substring(0, [Math]::Min(50, $accessToken.Length)))..." -ForegroundColor Gray
 Write-Host "   Token Type: JWT (expires in 15 minutes)" -ForegroundColor Gray
 
@@ -162,22 +162,23 @@ $orderId = $orderResponse.data.id
 $orderStatus = $orderResponse.data.status
 
 if (-not $orderId) {
-    Write-Host "❌ Order creation failed" -ForegroundColor Red
+    Write-Host " Order creation failed" -ForegroundColor Red
     exit 1
 }
 
 Write-Host ""
-Write-Host "✅ Order created successfully" -ForegroundColor Green
+Write-Host " Order created successfully" -ForegroundColor Green
 Write-Host "   Order ID: $orderId" -ForegroundColor Gray
 Write-Host "   Status: $orderStatus" -ForegroundColor Gray
-Write-Host "   Total: `$$('{0:N2}' -f $orderResponse.data.total_amount)" -ForegroundColor Gray
+$totalAmount = '{0:N2}' -f $orderResponse.data.total_amount
+Write-Host "   Total: $totalAmount" -ForegroundColor Gray
 
 # ============================================================================
 # STEP 5: Poll Order Status (Watch Saga Progress)
 # ============================================================================
 Section "Step 5: Monitor Saga Orchestration Progress"
 Write-Host "Polling order status to watch the saga complete..." -ForegroundColor Cyan
-Write-Host "The saga will: Order → Inventory Reserve → Payment Process → Finalize" -ForegroundColor Gray
+Write-Host "The saga will: Order  Inventory Reserve  Payment Process  Finalize" -ForegroundColor Gray
 
 $pollCount = 0
 $maxPolls = 15
@@ -203,7 +204,7 @@ while ($pollCount -lt $maxPolls) {
     
     if ($currentStatus -eq "completed" -or $currentStatus -eq "confirmed") {
         Write-Host ""
-        Write-Host "✅ Saga completed! Order finalized." -ForegroundColor Green
+        Write-Host " Saga completed! Order finalized." -ForegroundColor Green
         Write-Host ""
         Write-Host "Final Order Details:" -ForegroundColor Cyan
         $statusResponse.data | ConvertTo-Json -Depth 10
@@ -235,7 +236,7 @@ $paymentResponse | ConvertTo-Json -Depth 10
 
 if ($paymentResponse.data -and $paymentResponse.data[0]) {
     Write-Host ""
-    Write-Host "✅ Payment confirmed" -ForegroundColor Green
+    Write-Host " Payment confirmed" -ForegroundColor Green
     Write-Host "   Payment ID: $($paymentResponse.data[0].id)" -ForegroundColor Gray
     Write-Host "   Amount: `$$('{0:N2}' -f $paymentResponse.data[0].amount)" -ForegroundColor Gray
 }
@@ -243,7 +244,7 @@ if ($paymentResponse.data -and $paymentResponse.data[0]) {
 # ============================================================================
 # Summary
 # ============================================================================
-Section "Demo Complete ✅"
+Section "Demo Complete "
 Write-Host ""
 Write-Host "What You Just Saw:" -ForegroundColor Green
 Write-Host "  Check User authentication (JWT tokens)" -ForegroundColor Cyan
@@ -261,10 +262,10 @@ Write-Host "  * JWT Auth - Token-based API security" -ForegroundColor Gray
 Write-Host "  * Event-Driven - Kafka integration for async events" -ForegroundColor Gray
 Write-Host ""
 Write-Host "System Details:" -ForegroundColor Green
-Write-Host "  • Language: Go 1.21" -ForegroundColor Gray
-Write-Host "  • Database: PostgreSQL (primary data store)" -ForegroundColor Gray
-Write-Host "  • Cache: Redis (inventory/order cache)" -ForegroundColor Gray
-Write-Host "  • Queue: Kafka (optional, graceful degradation if down)" -ForegroundColor Gray
-Write-Host "  • Deployment: Docker Compose on AWS EC2" -ForegroundColor Gray
+Write-Host "   Language: Go 1.21" -ForegroundColor Gray
+Write-Host "   Database: PostgreSQL (primary data store)" -ForegroundColor Gray
+Write-Host "   Cache: Redis (inventory/order cache)" -ForegroundColor Gray
+Write-Host "   Queue: Kafka (optional, graceful degradation if down)" -ForegroundColor Gray
+Write-Host "   Deployment: Docker Compose on AWS EC2" -ForegroundColor Gray
 Write-Host ""
-Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "" -ForegroundColor Cyan
