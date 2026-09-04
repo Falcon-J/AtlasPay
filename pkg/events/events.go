@@ -47,6 +47,54 @@ type Event struct {
 	Payload       json.RawMessage `json:"payload"`
 }
 
+// Validate checks the event envelope before a consumer dispatches it. The
+// consumer must dead-letter invalid envelopes instead of acknowledging them as
+// successfully handled.
+func (e *Event) Validate() error {
+	if e == nil {
+		return fmt.Errorf("event is nil")
+	}
+	if e.ID == "" {
+		return fmt.Errorf("event id is required")
+	}
+	if e.Type == "" {
+		return fmt.Errorf("event type is required")
+	}
+	if e.AggregateID == "" {
+		return fmt.Errorf("event aggregate id is required")
+	}
+	if e.CorrelationID == "" {
+		return fmt.Errorf("event correlation id is required")
+	}
+	if e.Version < 1 {
+		return fmt.Errorf("event version must be positive")
+	}
+
+	var payload map[string]json.RawMessage
+	if len(e.Payload) == 0 || json.Unmarshal(e.Payload, &payload) != nil || payload == nil {
+		return fmt.Errorf("event payload must be a JSON object")
+	}
+
+	switch e.Type {
+	case OrderCreated:
+		var orderPayload OrderCreatedPayload
+		if err := json.Unmarshal(e.Payload, &orderPayload); err != nil {
+			return fmt.Errorf("decode order created payload: %w", err)
+		}
+		if orderPayload.OrderID == "" {
+			return fmt.Errorf("order created payload order id is required")
+		}
+	case InventoryReserved, InventoryFailed, InventoryReleased, InventoryCommitted,
+		PaymentProcessed, PaymentFailed, PaymentRefunded, OrderConfirmed, OrderCancelled, OrderFailed:
+		// These known event types have passed the generic envelope and
+		// object-payload checks. Their owning handler validates domain fields.
+	default:
+		return fmt.Errorf("unsupported event type %q", e.Type)
+	}
+
+	return nil
+}
+
 // OrderCreatedPayload represents order created event data
 type OrderCreatedPayload struct {
 	OrderID    string      `json:"order_id"`

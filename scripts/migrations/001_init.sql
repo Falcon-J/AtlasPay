@@ -175,6 +175,10 @@ CREATE TABLE IF NOT EXISTS dead_letter_events (
 CREATE INDEX IF NOT EXISTS idx_dead_letter_events_topic ON dead_letter_events(topic);
 CREATE INDEX IF NOT EXISTS idx_dead_letter_events_event_type ON dead_letter_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_dead_letter_events_created_at ON dead_letter_events(created_at DESC);
+ALTER TABLE dead_letter_events ADD COLUMN IF NOT EXISTS publish_attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE dead_letter_events ADD COLUMN IF NOT EXISTS last_publish_error TEXT;
+ALTER TABLE dead_letter_events ADD COLUMN IF NOT EXISTS published_at TIMESTAMP;
+CREATE INDEX IF NOT EXISTS idx_dead_letter_events_unpublished ON dead_letter_events(published_at, created_at);
 
 -- Insert sample inventory data for testing
 INSERT INTO inventory (id, sku, name, description, quantity, unit_price) VALUES

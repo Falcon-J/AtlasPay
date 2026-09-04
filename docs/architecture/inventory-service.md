@@ -23,7 +23,9 @@ commits, restocking, reservation idempotency, and its cache-aside behavior.
 | `POST` | `/internal/v1/inventory/commit` | Commit a reservation |
 | `GET` | `/internal/v1/inventory/reservations/{orderID}` | List order reservations |
 | `POST` | `/internal/v1/inventory/restock` | Add stock |
-| `GET` | `/health` | Database/cache readiness check |
+| `GET` | `/health/live` | Process liveness |
+| `GET` | `/health/ready` | Database/cache readiness check |
+| `GET` | `/health` | Legacy health compatibility route |
 
 The gateway uses `internal/inventory.Client`, while local tests can use the
 existing `inventory.Service` adapter. The private contract requires

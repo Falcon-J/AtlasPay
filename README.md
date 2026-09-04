@@ -214,10 +214,13 @@ docker compose up -d --build --wait payment-service inventory-service order-serv
 Check backend health:
 
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:8080/health/live
+curl http://localhost:8080/health/ready
 ```
 
-Expected response shape:
+The first endpoint is process-only liveness. The second checks gateway
+dependencies and returns `503` when the gateway is not ready. The compatibility
+`/health` endpoint retains the detailed database/cache status shape:
 
 ```json
 {
@@ -421,7 +424,9 @@ To configure a hosted backend API:
 
 | Method | Endpoint   | Description                     |
 | ------ | ---------- | ------------------------------- |
-| GET    | `/health`  | API, database, and cache health |
+| GET    | `/health/live`  | Process liveness                 |
+| GET    | `/health/ready` | Database/cache readiness         |
+| GET    | `/health`      | Legacy detailed health status    |
 | GET    | `/metrics` | Prometheus-compatible metrics   |
 
 ---

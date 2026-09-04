@@ -10,6 +10,7 @@ import (
 
 	"github.com/atlaspay/platform/internal/common/config"
 	"github.com/atlaspay/platform/internal/common/database"
+	"github.com/atlaspay/platform/internal/common/health"
 	"github.com/atlaspay/platform/internal/common/logger"
 	"github.com/atlaspay/platform/internal/common/response"
 	"github.com/atlaspay/platform/internal/payment"
@@ -38,6 +39,8 @@ func main() {
 
 	service := payment.NewService(payment.NewRepository(db.Pool))
 	r := chi.NewRouter()
+	r.Get("/health/live", health.LiveHandler().ServeHTTP)
+	r.Get("/health/ready", health.ReadyHandler(db.Health).ServeHTTP)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.Health(r.Context()); err != nil {
 			response.JSON(w, http.StatusServiceUnavailable, map[string]string{"status": "unhealthy"})

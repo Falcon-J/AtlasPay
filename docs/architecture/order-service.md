@@ -23,7 +23,9 @@ handling, saga snapshots/step logs, and order state transitions.
 | `GET` | `/internal/v1/orders/{id}` | Read an order |
 | `GET` | `/internal/v1/orders/{id}/saga` | Read durable saga state |
 | `PATCH` | `/internal/v1/orders/{id}/cancel` | Cancel an owned order |
-| `GET` | `/health` | Database/cache readiness check |
+| `GET` | `/health/live` | Process liveness |
+| `GET` | `/health/ready` | Database/cache readiness check |
+| `GET` | `/health` | Legacy health compatibility route |
 
 The gateway uses `internal/order.Client`; the Order/Saga process uses the same
 typed Payment and Inventory clients for its saga steps. Only the Order/Saga

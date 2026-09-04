@@ -132,7 +132,7 @@ services:
     ports:
       - "8080:8080"
     healthcheck:
-      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health" ]
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health/ready" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -179,7 +179,7 @@ services:
     expose:
       - "8083"
     healthcheck:
-      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/health" ]
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/health/ready" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -208,7 +208,7 @@ services:
     expose:
       - "8081"
     healthcheck:
-      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health" ]
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health/ready" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -241,7 +241,7 @@ services:
     expose:
       - "8082"
     healthcheck:
-      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/health" ]
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/health/ready" ]
       interval: 10s
       timeout: 5s
       retries: 5

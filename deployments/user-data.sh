@@ -95,7 +95,7 @@ services:
       SERVER_WRITE_TIMEOUT: 15s
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -137,4 +137,3 @@ echo "📊 Monitor logs: cd ~/atlaspay && docker compose logs -f"
 echo ""
 echo "🛑 To stop services: docker compose down"
 echo "🔄 To restart services: docker compose restart"
-

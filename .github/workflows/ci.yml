@@ -31,8 +31,14 @@ jobs:
       - name: Verify Go modules
         run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go mod verify
 
-      - name: Build API gateway
-        run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go build -buildvcs=false -v ./cmd/api-gateway/...
+      - name: Check Go formatting
+        run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 sh -c 'test -z "$(gofmt -l $(git ls-files "*.go"))"'
+
+      - name: Run go vet
+        run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go vet ./...
+
+      - name: Build application processes
+        run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go build -buildvcs=false -v ./cmd/api-gateway ./cmd/order-service ./cmd/payment-service ./cmd/inventory-service
 
       - name: Run Go tests
         run: docker run --rm -v "$PWD:/src" -w /src golang:1.25 go test -buildvcs=false ./...
@@ -74,7 +80,7 @@ jobs:
         shell: bash
         run: |
           for i in {1..45}; do
-            if curl -fsS http://localhost:8080/health; then
+            if curl -fsS http://localhost:8080/health/ready; then
               exit 0
             fi
             sleep 2

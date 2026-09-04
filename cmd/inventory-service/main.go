@@ -11,6 +11,7 @@ import (
 	"github.com/atlaspay/platform/internal/common/cache"
 	"github.com/atlaspay/platform/internal/common/config"
 	"github.com/atlaspay/platform/internal/common/database"
+	"github.com/atlaspay/platform/internal/common/health"
 	"github.com/atlaspay/platform/internal/common/logger"
 	"github.com/atlaspay/platform/internal/common/response"
 	"github.com/atlaspay/platform/internal/inventory"
@@ -45,6 +46,8 @@ func main() {
 
 	service := inventory.NewService(inventory.NewRepository(db.Pool, redisCache))
 	r := chi.NewRouter()
+	r.Get("/health/live", health.LiveHandler().ServeHTTP)
+	r.Get("/health/ready", health.ReadyHandler(db.Health, redisCache.Health).ServeHTTP)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.Health(r.Context()); err != nil {
 			response.JSON(w, http.StatusServiceUnavailable, map[string]string{"status": "unhealthy", "dependency": "postgres"})

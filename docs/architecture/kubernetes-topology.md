@@ -26,9 +26,10 @@ replicas with eight Kafka workers per pod, giving sixteen worker slots across
 the sixteen-partition local benchmark topology. This is a deployment shape,
 not proof of multi-node failover or production capacity.
 
-Each extracted process has startup, readiness, and liveness probes backed by
-`/health`. Each also exposes `/metrics`; Prometheus targets the service DNS
-names through `deployments/prometheus.yml`.
+Each extracted process has startup/liveness probes backed by `/health/live` and
+a dependency-aware readiness probe backed by `/health/ready`. Each also
+exposes `/metrics`; Prometheus targets the service DNS names through
+`deployments/prometheus.yml`.
 
 The current manifests intentionally share PostgreSQL and Redis while the
 bounded-context ownership extraction remains in progress. Production rollout

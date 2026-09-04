@@ -105,7 +105,9 @@ CI is configured to rerun the same workflow.
 ## Continuous Integration
 
 `.github/workflows/ci.yml` is configured to run Dockerized `go test ./...`,
-`docker compose config --quiet`, `git diff --check`, and the Docker Compose
+repository-wide `gofmt` validation, `go vet ./...`, builds for all four
+application entrypoints, `docker compose config --quiet`, `git diff --check`,
+and the Docker Compose
 checkout and DLQ smoke workflows. The checkout smoke assertions correlate Kafka
 publish and consume logs to both generated order IDs. Failed CI runs upload the
 Compose and smoke logs. This describes configured CI checks, not a claim that a
@@ -134,7 +136,8 @@ docker version
 docker compose config --quiet
 docker compose up -d --build --wait postgres redis zookeeper kafka payment-service inventory-service order-service api-gateway
 docker compose ps
-Invoke-RestMethod http://localhost:8080/health
+Invoke-RestMethod http://localhost:8080/health/live
+Invoke-RestMethod http://localhost:8080/health/ready
 .\scripts\dlq-smoke.ps1
 .\scripts\demo-smoke.ps1
 docker compose logs order-service | Select-String "event published|event processed"
@@ -160,6 +163,8 @@ different environments into one file.
   above.
 - External production topic provisioning; the proof script provisions its two
   required local topics directly.
+- Kubernetes probe behavior against a live cluster; static manifest validation
+  depends on a schema-capable `kubectl` or equivalent validator.
 
 The Vercel/static frontend simulation is not backend evidence and does not run
 Kafka, PostgreSQL, or Redis.

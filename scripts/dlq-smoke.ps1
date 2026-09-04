@@ -89,7 +89,9 @@ $continuationCorrelationId = "dlq-continue-$stamp"
 Write-Host "Publishing follow-up event to prove the consumer continues..."
 Publish-Event @{
     id = "continue-event-$stamp"
-    type = "proof.consumer_continues"
+    # Use a known event type with an empty payload. The order service ignores
+    # this non-creation event, which proves the consumer continued after DLQ.
+    type = "order.confirmed"
     aggregate_id = "dlq-proof"
     correlation_id = $continuationCorrelationId
     timestamp = [DateTimeOffset]::UtcNow.ToString("o")

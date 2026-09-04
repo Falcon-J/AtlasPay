@@ -19,7 +19,9 @@ transitions, and refunds.
 | `POST` | `/internal/v1/payments/process` | Process an idempotent payment |
 | `GET` | `/internal/v1/payments/{id}` | Read a payment |
 | `POST` | `/internal/v1/payments/{id}/refund` | Refund a completed payment |
-| `GET` | `/health` | Database-backed readiness check |
+| `GET` | `/health/live` | Process liveness |
+| `GET` | `/health/ready` | Database-backed readiness check |
+| `GET` | `/health` | Legacy health compatibility route |
 
 The gateway uses `internal/payment.Client`, while local tests can use the
 existing `payment.Service` adapter. The private contract requires

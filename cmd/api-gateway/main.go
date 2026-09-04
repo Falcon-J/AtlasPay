@@ -18,6 +18,7 @@ import (
 	"github.com/atlaspay/platform/internal/common/config"
 	"github.com/atlaspay/platform/internal/common/database"
 	"github.com/atlaspay/platform/internal/common/dlq"
+	"github.com/atlaspay/platform/internal/common/health"
 	"github.com/atlaspay/platform/internal/common/kafka"
 	"github.com/atlaspay/platform/internal/common/logger"
 	"github.com/atlaspay/platform/internal/common/metrics"
@@ -153,7 +154,9 @@ func main() {
 
 	// Health endpoints
 	r.Get("/health", healthCheck(db, redisCache))
-	r.Get("/ready", readinessCheck(db))
+	r.Get("/health/live", health.LiveHandler().ServeHTTP)
+	r.Get("/health/ready", health.ReadyHandler(db.Health, redisHealth(redisCache)).ServeHTTP)
+	r.Get("/ready", readinessCheck(db, redisCache))
 	r.Handle("/metrics", metrics.Handler())
 
 	// API routes (must come before static file server catch-all)
@@ -254,6 +257,7 @@ func healthCheck(db *database.PostgresDB, cache *cache.RedisCache) http.HandlerF
 		if cache != nil {
 			if err := cache.Health(ctx); err != nil {
 				health["cache"] = "down"
+				health["status"] = "degraded"
 			}
 		} else {
 			health["cache"] = "not configured"
@@ -267,14 +271,28 @@ func healthCheck(db *database.PostgresDB, cache *cache.RedisCache) http.HandlerF
 	}
 }
 
-func readinessCheck(db *database.PostgresDB) http.HandlerFunc {
+func readinessCheck(db *database.PostgresDB, redisCache *cache.RedisCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := db.Health(r.Context()); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			w.Write([]byte(`{"ready":false}`))
 			return
 		}
+		if err := redisHealth(redisCache)(r.Context()); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(`{"ready":false}`))
+			return
+		}
 		w.Write([]byte(`{"ready":true}`))
+	}
+}
+
+func redisHealth(redisCache *cache.RedisCache) health.Check {
+	return func(ctx context.Context) error {
+		if redisCache == nil {
+			return nil
+		}
+		return redisCache.Health(ctx)
 	}
 }
 
