@@ -117,9 +117,9 @@ sleep 45
 
 # Check health
 echo "🏥 Checking API health..."
-if curl -f http://localhost:8080/health 2>/dev/null; then
-    echo "✅ AtlasPay is healthy!"
-    curl -s http://localhost:8080/health | jq .
+if curl -f http://localhost:8080/health/ready 2>/dev/null; then
+    echo "✅ AtlasPay is ready!"
+    curl -s http://localhost:8080/health/ready | jq .
 else
     echo "⚠️ Health check pending, services may still be starting..."
     echo "Monitor with: docker compose logs -f api"

@@ -27,8 +27,8 @@ RUN apk --no-cache add ca-certificates tzdata
 # Copy the binary
 COPY --from=builder /app/api-gateway .
 
-# Copy migrations (optional, for running migrations on startup)
-COPY --from=builder /app/scripts/migrations ./migrations
+# Copy ordered migrations used by the startup migration runner
+COPY --from=builder /app/migrations ./migrations
 
 # Copy web UI
 COPY --from=builder /app/web ./web

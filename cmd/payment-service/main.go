@@ -29,12 +29,8 @@ func main() {
 	}
 	defer db.Close()
 
-	if migration, err := os.ReadFile("migrations/001_init.sql"); err == nil {
-		if err := db.ExecScript(ctx, string(migration)); err != nil {
-			logger.Fatal(ctx).Err(err).Msg("failed to run payment migrations")
-		}
-	} else {
-		logger.Fatal(ctx).Err(err).Msg("failed to read payment migrations")
+	if err := database.ApplyMigrations(ctx, db.Pool, "migrations"); err != nil {
+		logger.Fatal(ctx).Err(err).Msg("failed to apply payment migrations")
 	}
 
 	service := payment.NewService(payment.NewRepository(db.Pool))

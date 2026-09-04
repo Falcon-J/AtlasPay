@@ -62,6 +62,8 @@ section "Step 1: Health Check - Verify System is Running"
 echo "Checking if API, Database, and Cache are healthy..."
 echo ""
 
+# /health is retained here intentionally because this demo displays the
+# legacy database/cache diagnostic fields. Probes use /health/ready.
 HEALTH=$(curl -s "$API_URL/health" | jq '.')
 echo "$HEALTH"
 DB_STATUS=$(echo "$HEALTH" | jq -r '.db')

@@ -68,6 +68,8 @@ function RunApi {
 Section "Step 1: Health Check - Verify System is Running"
 Write-Host "Checking if API, Database, and Cache are healthy..." -ForegroundColor Cyan
 
+# /health is retained here intentionally because this demo displays the
+# legacy database/cache diagnostic fields. Probes use /health/ready.
 $health = Invoke-WebRequest -Uri "$ApiUrl/health" -UseBasicParsing | ConvertFrom-Json
 Write-Host ""
 $health | ConvertTo-Json -Depth 10

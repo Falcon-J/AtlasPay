@@ -97,10 +97,10 @@ export default function(data) {
 
     // Test scenarios
     group('Health Check', () => {
-        const res = http.get(`${BASE_URL}/health`);
+        const res = http.get(`${BASE_URL}/health/ready`);
         check(res, {
-            'health check status is 200': (r) => r.status === 200,
-            'health check is healthy': (r) => JSON.parse(r.body).status === 'healthy'
+            'readiness check status is 200': (r) => r.status === 200,
+            'readiness check is ready': (r) => JSON.parse(r.body).status === 'ready'
         });
     });
 

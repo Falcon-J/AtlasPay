@@ -1,5 +1,9 @@
 # AtlasPay AWS EC2 Setup - Step by Step
 
+> Historical guide: deployment details are unverified. Current probes use
+> `/health/live` for liveness and `/health/ready` for readiness; `/health`
+> remains only a legacy detailed diagnostics route.
+
 ## 📋 Prerequisites Checklist
 
 - [ ] AWS Account created (Free Tier eligible)

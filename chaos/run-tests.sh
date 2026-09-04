@@ -153,18 +153,18 @@ test_service_crash() {
     echo "" >> "$REPORT_FILE"
     
     # This test is more applicable with Kubernetes
-    # For Docker Compose, we test health endpoint
+    # For Docker Compose, we test the dependency-aware readiness endpoint.
     
-    log_info "Testing health endpoint..."
+    log_info "Testing readiness endpoint..."
     
-    HEALTH_RESPONSE=$(curl -s http://localhost:8080/health)
+    HEALTH_RESPONSE=$(curl -s http://localhost:8080/health/ready)
     
     echo "**Action:** Health check during normal operation" >> "$REPORT_FILE"
     echo "**Response:** \`$HEALTH_RESPONSE\`" >> "$REPORT_FILE"
     
-    if echo "$HEALTH_RESPONSE" | grep -q "healthy"; then
-        echo "**Result:** ✅ PASS - Health check working" >> "$REPORT_FILE"
-        log_info "PASS: Health check working"
+    if echo "$HEALTH_RESPONSE" | grep -q '"ready"'; then
+        echo "**Result:** ✅ PASS - Readiness check working" >> "$REPORT_FILE"
+        log_info "PASS: Readiness check working"
     else
         echo "**Result:** ⚠️ CHECK - Review health status" >> "$REPORT_FILE"
         log_warn "Health check returned unexpected status"
@@ -186,7 +186,7 @@ test_spike_load() {
     FAIL=0
     
     for i in {1..100}; do
-        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health)
+        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health/ready)
         if [ "$RESPONSE" -eq 200 ]; then
             ((SUCCESS++))
         else

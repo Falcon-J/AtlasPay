@@ -70,7 +70,7 @@ kubectl describe deployment api-gateway
 5. Use these settings:
    - **Runtime**: Docker
    - **Instance Type**: Free
-   - **Health Check**: /health
+   - **Health Check**: /health/ready
 
 ### render.yaml (add to repo root):
 ```yaml
@@ -79,7 +79,7 @@ services:
     name: atlaspay-api
     runtime: docker
     plan: free
-    healthCheckPath: /health
+    healthCheckPath: /health/ready
     envVars:
       - key: DB_HOST
         value: your-postgres-host

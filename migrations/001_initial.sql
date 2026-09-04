@@ -1,7 +1,6 @@
--- AtlasPay Database Schema
--- Run: psql -U atlaspay -d atlaspay -f init.sql
+-- AtlasPay baseline schema.
+-- Applied by internal/common/database.ApplyMigrations in filename order.
 
--- Users table
 CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(36) PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -17,7 +16,6 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 
--- Refresh tokens table
 CREATE TABLE IF NOT EXISTS refresh_tokens (
     id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -31,7 +29,6 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id)
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at);
 
--- Orders table
 CREATE TABLE IF NOT EXISTS orders (
     id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL REFERENCES users(id),
@@ -46,7 +43,6 @@ CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 
--- Order items table
 CREATE TABLE IF NOT EXISTS order_items (
     id VARCHAR(36) PRIMARY KEY,
     order_id VARCHAR(36) NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -60,7 +56,6 @@ CREATE TABLE IF NOT EXISTS order_items (
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_sku ON order_items(sku);
 
--- Payments table
 CREATE TABLE IF NOT EXISTS payments (
     id VARCHAR(36) PRIMARY KEY,
     order_id VARCHAR(36) NOT NULL REFERENCES orders(id),
@@ -80,7 +75,6 @@ CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_idempotency_key ON payments(idempotency_key);
 CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 
--- Inventory table
 CREATE TABLE IF NOT EXISTS inventory (
     id VARCHAR(36) PRIMARY KEY,
     sku VARCHAR(50) UNIQUE NOT NULL,
@@ -99,7 +93,6 @@ CREATE TABLE IF NOT EXISTS inventory (
 
 CREATE INDEX IF NOT EXISTS idx_inventory_sku ON inventory(sku);
 
--- Reservations table
 CREATE TABLE IF NOT EXISTS reservations (
     id VARCHAR(36) PRIMARY KEY,
     order_id VARCHAR(36) NOT NULL,
@@ -116,7 +109,6 @@ CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
 CREATE INDEX IF NOT EXISTS idx_reservations_expires ON reservations(expires_at);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_reservations_order_sku ON reservations(order_id, sku);
 
--- Saga execution logs (for debugging and recovery)
 CREATE TABLE IF NOT EXISTS saga_logs (
     id VARCHAR(36) PRIMARY KEY,
     saga_id VARCHAR(36) NOT NULL,
@@ -131,8 +123,6 @@ CREATE INDEX IF NOT EXISTS idx_saga_logs_saga_id ON saga_logs(saga_id);
 CREATE INDEX IF NOT EXISTS idx_saga_logs_status ON saga_logs(status);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_saga_logs_identity ON saga_logs(saga_id, step_name, status);
 
--- Durable lease preventing concurrent in-flight saga replays for one order.
--- The lease is reclaimable after an Order/Saga process crash.
 CREATE TABLE IF NOT EXISTS saga_claims (
     order_id VARCHAR(100) PRIMARY KEY,
     event_id VARCHAR(100) NOT NULL,
@@ -143,7 +133,6 @@ CREATE TABLE IF NOT EXISTS saga_claims (
 
 CREATE INDEX IF NOT EXISTS idx_saga_claims_lease ON saga_claims(lease_expires_at);
 
--- Transactional outbox for events that must follow a database commit
 CREATE TABLE IF NOT EXISTS outbox_events (
     id VARCHAR(100) PRIMARY KEY,
     topic VARCHAR(255) NOT NULL,
@@ -159,7 +148,6 @@ CREATE TABLE IF NOT EXISTS outbox_events (
 
 CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox_events(published_at, claimed_at, created_at);
 
--- Dead-letter events for async processing failures
 CREATE TABLE IF NOT EXISTS dead_letter_events (
     id VARCHAR(36) PRIMARY KEY,
     topic VARCHAR(255) NOT NULL,
@@ -175,12 +163,7 @@ CREATE TABLE IF NOT EXISTS dead_letter_events (
 CREATE INDEX IF NOT EXISTS idx_dead_letter_events_topic ON dead_letter_events(topic);
 CREATE INDEX IF NOT EXISTS idx_dead_letter_events_event_type ON dead_letter_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_dead_letter_events_created_at ON dead_letter_events(created_at DESC);
-ALTER TABLE dead_letter_events ADD COLUMN IF NOT EXISTS publish_attempts INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE dead_letter_events ADD COLUMN IF NOT EXISTS last_publish_error TEXT;
-ALTER TABLE dead_letter_events ADD COLUMN IF NOT EXISTS published_at TIMESTAMP;
-CREATE INDEX IF NOT EXISTS idx_dead_letter_events_unpublished ON dead_letter_events(published_at, created_at);
 
--- Insert sample inventory data for testing
 INSERT INTO inventory (id, sku, name, description, quantity, unit_price) VALUES
     ('inv-001', 'LAPTOP-001', 'MacBook Pro 14"', 'Apple MacBook Pro with M3 chip', 100, 1999.99),
     ('inv-002', 'PHONE-001', 'iPhone 15 Pro', 'Apple iPhone 15 Pro 256GB', 250, 1199.99),
@@ -190,7 +173,6 @@ INSERT INTO inventory (id, sku, name, description, quantity, unit_price) VALUES
     ('inv-006', 'FAIL-PAYMENT-001', 'Demo Payment Failure Item', 'Reserved successfully, then forces payment failure for saga compensation demos', 50, 19.99)
 ON CONFLICT (sku) DO NOTHING;
 
--- Insert admin user (password: admin123)
 INSERT INTO users (id, email, password_hash, first_name, last_name, role) VALUES
     ('admin-001', 'admin@atlaspay.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3.RP5mbJ1PO.VYELPalm', 'Admin', 'User', 'admin')
 ON CONFLICT (email) DO NOTHING;

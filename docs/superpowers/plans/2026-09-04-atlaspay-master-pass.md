@@ -25,7 +25,7 @@
 **Files:**
 - Modify: `internal/common/kafka/kafka.go`
 - Modify: `internal/common/dlq/repository.go`
-- Modify: `scripts/migrations/001_init.sql`
+- Modify: `migrations/001_initial.sql`, `migrations/002_dlq_publication_state.sql`
 - Test: `internal/common/kafka/kafka_test.go`
 
 **Interfaces:**
@@ -91,7 +91,7 @@
 ### Task 4: Audit PostgreSQL schema and migration ownership
 
 **Files:**
-- Inspect and modify only as evidence requires: `scripts/migrations/001_init.sql`, database repositories, `docs/INTEGRATION_MATRIX.md`, and a focused database audit note.
+- Inspect and modify only as evidence requires: `migrations/*.sql`, database repositories, `docs/INTEGRATION_MATRIX.md`, and a focused database audit note.
 
 **Outcome:** Constraints and indexes are verified against actual query predicates; migration application ownership is documented without introducing a migration framework or unsupported performance claims. Any index change includes reproducible query-plan evidence.
 

@@ -41,7 +41,11 @@ Run each command individually to explain what's happening:
 ```bash
 API_URL="http://52.23.219.80:8080"
 
-# 1. Health check
+# 1. Liveness and readiness checks
+curl -s $API_URL/health/live | jq '.'
+curl -s $API_URL/health/ready | jq '.'
+
+# Optional legacy diagnostics with database/cache detail
 curl -s $API_URL/health | jq '.'
 
 # 2. Register user
@@ -71,7 +75,7 @@ curl -s -X POST $API_URL/api/orders \
 
 ## 📋 What the Demo Shows (Step by Step)
 
-### Step 1: Health Check ✅
+### Step 1: Readiness and diagnostics ✅
 ```json
 {
   "status": "healthy",
@@ -82,6 +86,11 @@ curl -s -X POST $API_URL/api/orders \
 **Interview Point:** "The public gateway reports its database and cache health;
 the Compose health checks separately validate Order/Saga, Payment, Inventory,
 Kafka, PostgreSQL, and Redis."
+
+`/health/live` is reserved for process liveness and does not call dependencies;
+`/health/ready` is the endpoint used by deployment and Compose probes. The
+legacy `/health` route is retained only for the detailed database/cache shape
+shown above.
 
 ---
 
@@ -287,7 +296,8 @@ No duplicate charge, no new payment
 - "For cloud, built Docker image on laptop (1GB RAM on EC2 insufficient for Go build)"
 - "SCP image to EC2, load with `docker load`, start with `docker compose up`"
 - "Services auto-restart on failure (`restart: unless-stopped`)"
-- "Health checks via `/health` endpoint (db + cache verification)"
+- "Readiness via `/health/ready`; optional detailed diagnostics via the legacy
+  `/health` endpoint (db + cache verification)"
 
 ---
 
@@ -370,7 +380,9 @@ No duplicate charge, no new payment
 Before the interview:
 - [ ] EC2 instance is running (`ping 52.23.219.80`)
 - [ ] Docker services are healthy (`docker compose ps`)
-- [ ] `/health` endpoint returns db:up, cache:up
+- [ ] `/health/live` returns HTTP 200 without dependency checks
+- [ ] `/health/ready` returns HTTP 200 when database/cache are available
+- [ ] Legacy `/health` endpoint returns db:up, cache:up for detailed diagnostics
 - [ ] Have the demo script tested locally
 - [ ] Understand each step (you'll be asked to explain)
 - [ ] Have a backup: can fall back to manual curl commands

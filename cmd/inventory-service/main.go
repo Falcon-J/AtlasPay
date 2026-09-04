@@ -30,12 +30,8 @@ func main() {
 	}
 	defer db.Close()
 
-	if migration, err := os.ReadFile("migrations/001_init.sql"); err == nil {
-		if err := db.ExecScript(ctx, string(migration)); err != nil {
-			logger.Fatal(ctx).Err(err).Msg("failed to run inventory migrations")
-		}
-	} else {
-		logger.Fatal(ctx).Err(err).Msg("failed to read inventory migrations")
+	if err := database.ApplyMigrations(ctx, db.Pool, "migrations"); err != nil {
+		logger.Fatal(ctx).Err(err).Msg("failed to apply inventory migrations")
 	}
 
 	redisCache, err := cache.NewRedisCache(cfg.Redis.RedisAddr(), cfg.Redis.Password, cfg.Redis.DB)

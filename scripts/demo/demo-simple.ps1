@@ -14,6 +14,8 @@ $password = "DemoPass@123"
 
 # STEP 1: Health Check
 Write-Host "[1] Health Check" -ForegroundColor Yellow
+# /health is retained here intentionally because this demo displays the
+# legacy database/cache diagnostic fields. Probes use /health/ready.
 $health = Invoke-WebRequest -Uri "$ApiUrl/health" -UseBasicParsing | ConvertFrom-Json
 Write-Host ("DB: " + $health.db + " | Cache: " + $health.cache) -ForegroundColor Green
 

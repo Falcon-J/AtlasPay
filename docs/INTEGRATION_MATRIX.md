@@ -3,14 +3,20 @@
 This matrix names the behavior covered by the Docker Compose smoke workflows.
 It is a local validation map, not a claim that GitHub-hosted CI has passed.
 
+The health contract is intentionally split: `/health/live` is process-only;
+`/health/ready` checks dependencies needed for useful work; `/health` remains a
+legacy detailed diagnostics route.
+
 | Case | Observable assertion | Workflow |
 | --- | --- | --- |
-| Health and dependencies | `/health` reports healthy database/cache | `demo-smoke.ps1` |
-| Payment service health | Private payment process reports healthy | Compose healthcheck |
+| Liveness | `/health/live` reports the process is alive without dependency checks | Compose healthcheck |
+| Health and dependencies | `/health/ready` reports the gateway is ready for useful work | `demo-smoke.ps1` |
+| Ordered migrations | Both versioned migrations are applied once and a second run is a no-op | `TestApplyMigrationsIsIdempotentAgainstPostgres` |
+| Payment service readiness | Private payment process reports ready | Compose healthcheck |
 | Payment contract auth | Invalid internal token is rejected | `payment-service-contract-smoke.ps1` |
-| Inventory service health | Private inventory process reports healthy | Compose healthcheck |
+| Inventory service readiness | Private inventory process reports ready | Compose healthcheck |
 | Inventory contract auth | Invalid internal token is rejected | `inventory-service-contract-smoke.ps1` |
-| Order service health | Private order process reports healthy | Compose healthcheck |
+| Order service readiness | Private order process reports ready | Compose healthcheck |
 | Order contract auth | Invalid internal token is rejected | `order-service-contract-smoke.ps1` |
 | User registration | Registration returns a bearer token | `demo-smoke.ps1` |
 | Inventory restock | Seeded SKU accepts stock | `demo-smoke.ps1` |

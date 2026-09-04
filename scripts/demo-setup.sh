@@ -67,8 +67,8 @@ run_api() {
     echo "⏳ Waiting for API to start..."
     sleep 5
     
-    # Health check
-    if curl -s http://localhost:8080/health | grep -q "healthy"; then
+    # Readiness check; liveness is intentionally dependency-free.
+    if curl -s http://localhost:8080/health/ready | grep -q '"ready"'; then
         echo "✅ API Gateway running (PID: $API_PID)"
     else
         echo "❌ API failed to start"
@@ -149,13 +149,14 @@ print_urls() {
     echo ""
     echo "URLs for demo:"
     echo "  📡 API:        http://localhost:8080"
-    echo "  🏥 Health:     http://localhost:8080/health"
+    echo "  🏥 Liveness:   http://localhost:8080/health/live"
+    echo "  ✅ Readiness:  http://localhost:8080/health/ready"
     echo "  📊 Grafana:    http://localhost:3000 (admin/admin123)"
     echo "  📈 Prometheus: http://localhost:9090"
     echo ""
     echo "Demo commands:"
-    echo "  # Check health"
-    echo "  curl http://localhost:8080/health"
+    echo "  # Check readiness"
+    echo "  curl http://localhost:8080/health/ready"
     echo ""
     echo "  # Login"
     echo '  curl -X POST http://localhost:8080/api/auth/login \'

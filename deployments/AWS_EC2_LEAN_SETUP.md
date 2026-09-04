@@ -1,5 +1,9 @@
 # AWS EC2 Free Tier - Lean Deployment Guide
 
+> Historical guide: deployment details are unverified. Current probes use
+> `/health/live` for liveness and `/health/ready` for readiness; `/health`
+> remains only a legacy detailed diagnostics route.
+
 ## 🎯 Quick Start (5 minutes)
 
 ### Prerequisites
@@ -108,15 +112,15 @@ api          Up (healthy)    0.0.0.0:8080->8080/tcp
 
 ```bash
 # Check API health
-curl http://localhost:8080/health
+curl http://localhost:8080/health/ready
 
 # Expected response:
-# {"status":"healthy","db":"up","cache":"up"}
+# {"status":"ready"}
 ```
 
 **From your laptop:**
 ```bash
-curl http://YOUR_EC2_PUBLIC_IP:8080/health
+curl http://YOUR_EC2_PUBLIC_IP:8080/health/ready
 ```
 
 ---

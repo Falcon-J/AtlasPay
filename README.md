@@ -230,6 +230,24 @@ dependencies and returns `503` when the gateway is not ready. The compatibility
 }
 ```
 
+### Database migrations
+
+Ordered SQL migrations live in `migrations/`. Each application process applies
+pending files at startup through the shared runner and records applied files in
+the PostgreSQL `schema_migrations` table. The runner takes a PostgreSQL
+advisory lock and applies each startup batch in one transaction; migration
+errors stop startup instead of being ignored.
+
+Inspect the applied ledger locally with:
+
+```powershell
+docker compose exec -T postgres psql -U atlaspay -d atlaspay -c "SELECT version, applied_at FROM schema_migrations ORDER BY version;"
+```
+
+When adding a migration, rebuild the application images so the new SQL file is
+included. There are no down migrations; use the repository's normal backup and
+roll-forward process.
+
 Stop and clean local volumes:
 
 ```bash
@@ -333,13 +351,14 @@ docker compose down -v
 
 The CI workflow validates:
 
-* Dockerized `go test ./...`
+* Dockerized `gofmt`, `go vet`, `go test ./...`, and builds for all four Go processes
 * Docker Compose configuration
 * committed whitespace checks
 * bounded Docker Compose startup
 * checkout smoke workflow
 * DLQ smoke workflow
 * Kafka publish/process assertions
+* contract, duplicate-delivery, outbox, and saga recovery workflows
 * failure-log upload
 * unconditional Docker cleanup
 
@@ -359,7 +378,7 @@ It supports two modes:
 
 ### Live Backend Mode
 
-Uses the AtlasPay API after a short `/health` check.
+Uses the AtlasPay API after a short `/health/ready` check.
 
 ### Demo Simulation Mode
 

@@ -120,7 +120,7 @@ func (s *Service) RestockItem(ctx context.Context, sku string, quantity int) err
 		logger.Error(ctx).Err(err).Str("sku", sku).Int("quantity", quantity).Msg("failed to restock")
 		return errors.ErrInternalServer.WithDetails(err.Error())
 	}
-	
+
 	logger.Info(ctx).Str("sku", sku).Int("added_quantity", quantity).Msg("stock successfully replenished")
 	return nil
 }

@@ -115,12 +115,18 @@ jobs:
             throw "order-service-contract-smoke.log was not created"
           }
 
-      - name: Run saga claim integration test
+      - name: Run migration and saga integration tests
         shell: bash
         run: |
           docker build --target builder -t atlaspay-order-test -f Dockerfile.order .
           NETWORK=$(docker network ls --filter label=com.docker.compose.network=atlaspay-network --format '{{.ID}}' | head -n 1)
           test -n "$NETWORK"
+          docker run --rm --network "$NETWORK" \
+            -e ATLASPAY_INTEGRATION=1 \
+            -w /app \
+            atlaspay-order-test \
+            go test -buildvcs=false ./internal/common/database -run TestApplyMigrationsIsIdempotentAgainstPostgres -count=1 -v \
+            2>&1 | tee migration-integration.log
           docker run --rm --network "$NETWORK" \
             -e ATLASPAY_INTEGRATION=1 \
             -w /app \
@@ -224,6 +230,7 @@ jobs:
             inventory-service-contract-smoke.log
             order-service-contract-smoke.log
             saga-claim-integration.log
+            migration-integration.log
             demo-smoke.log
             duplicate-event-smoke.log
             outbox-recovery-smoke.log

@@ -12,7 +12,8 @@ Historical evidence captured on 2026-06-14:
 - `docker compose config --quiet` passed, proving the Compose file parses.
   See `docker-compose-config.txt`.
 - Docker Compose services were running; the API, PostgreSQL, Redis, and Kafka
-  containers reported healthy, and `/health` reported database/cache up.
+  containers reported healthy, and the legacy `/health` diagnostics route
+  reported database/cache up.
   See `docker-backend-status.txt`.
 - `scripts/demo-smoke.ps1` passed against the local stack. It proved a successful
   saga reached `completed` with a confirmed order, an injected payment failure
@@ -107,7 +108,7 @@ CI is configured to rerun the same workflow.
 `.github/workflows/ci.yml` is configured to run Dockerized `go test ./...`,
 repository-wide `gofmt` validation, `go vet ./...`, builds for all four
 application entrypoints, `docker compose config --quiet`, `git diff --check`,
-and the Docker Compose
+the PostgreSQL migration-ledger integration test, and the Docker Compose
 checkout and DLQ smoke workflows. The checkout smoke assertions correlate Kafka
 publish and consume logs to both generated order IDs. Failed CI runs upload the
 Compose and smoke logs. This describes configured CI checks, not a claim that a
@@ -136,6 +137,7 @@ docker version
 docker compose config --quiet
 docker compose up -d --build --wait postgres redis zookeeper kafka payment-service inventory-service order-service api-gateway
 docker compose ps
+docker compose exec -T postgres psql -U atlaspay -d atlaspay -c "SELECT version, applied_at FROM schema_migrations ORDER BY version;"
 Invoke-RestMethod http://localhost:8080/health/live
 Invoke-RestMethod http://localhost:8080/health/ready
 .\scripts\dlq-smoke.ps1

@@ -1,8 +1,12 @@
-# AtlasPay Live Deployment
+# AtlasPay Historical Deployment Notes
 
-## 🌐 Live Environment
+> This file records an older EC2 deployment and is not current production
+> evidence. The documented host and version details may no longer exist. Use
+> `docs/deployment/LOCAL_DEPLOYMENT.md` for the reproducible local deployment.
 
-**Status:** ✅ Active  
+## 🌐 Historical Environment Snapshot
+
+**Status:** Historical / unverified
 **Platform:** AWS EC2 (Free Tier)  
 **Instance:** t2.micro (1 vCPU, 1GB RAM)  
 **Region:** US East (N. Virginia)  
@@ -12,16 +16,14 @@
 
 | Service | URL | Purpose |
 |---------|-----|---------|
-| **Health Check** | http://52.23.219.80:8080/health | API readiness (JSON response) |
+| **Readiness Check** | http://YOUR_EC2_PUBLIC_IP:8080/health/ready | Dependency-aware readiness |
 | **API Gateway** | http://52.23.219.80:8080 | Payment/order operations |
 | **SSH Access** | `ssh -i <key> ubuntu@52.23.219.80` | Server management |
 
 ### Sample Health Response
 ```json
 {
-  "status": "healthy",
-  "db": "up",
-  "cache": "up"
+  "status": "ready"
 }
 ```
 
@@ -92,7 +94,7 @@ docker compose logs -f api --tail=50
 docker compose ps
 
 # Health metrics
-curl http://localhost:8080/health
+curl http://localhost:8080/health/ready
 ```
 
 ### Service Management
@@ -113,7 +115,7 @@ docker stats
 ## 🔍 Monitoring & Debugging
 
 ### Health Checks
-- **API Health:** GET `/health` → Returns service status
+- **API Readiness:** GET `/health/ready` → Returns `ready` when dependencies are available
 - **Database:** Connection tested on startup (20 retry attempts with exponential backoff)
 - **Cache:** Redis connectivity validated at startup
 
@@ -159,7 +161,7 @@ docker stats
 
 - [AWS EC2 Step-by-Step Setup](./deployments/AWS_EC2_STEP_BY_STEP.md) - Detailed manual setup guide
 - [Lean Setup for Free Tier](./deployments/AWS_EC2_LEAN_SETUP.md) - Memory-optimized deployment
-- [Deployment Fixes](./DEPLOYMENT_FIXES.md) - Technical issues and solutions
+- [Local Deployment](./docs/deployment/LOCAL_DEPLOYMENT.md) - Reproducible current local deployment
 - [Architecture Overview](./docs/CURRENT_STATE.md) - System design details
 
 ## 📞 Support
@@ -167,7 +169,7 @@ docker stats
 For deployment issues:
 1. Check logs: `docker compose logs api`
 2. Verify services: `docker compose ps`
-3. Test connectivity: `curl http://52.23.219.80:8080/health`
+3. Test connectivity: `curl http://YOUR_EC2_PUBLIC_IP:8080/health/ready`
 4. Review troubleshooting section above
 
 ---

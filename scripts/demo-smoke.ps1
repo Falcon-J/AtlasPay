@@ -83,10 +83,10 @@ function Wait-Saga {
     throw "Saga for order $OrderId did not reach expected status: $($ExpectedStatuses -join ', ')"
 }
 
-Write-Host "Checking health..."
-$health = Invoke-RestMethod "$BaseUrl/health"
-if ($health.status -ne "healthy") {
-    throw "Health check did not return healthy"
+Write-Host "Checking readiness..."
+$readiness = Invoke-RestMethod "$BaseUrl/health/ready"
+if ($readiness.status -ne "ready") {
+    throw "Readiness check did not return ready"
 }
 
 $stamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()

@@ -18,12 +18,12 @@ func NewInternalHandler(service *Service, token string) chi.Router {
 	r := chi.NewRouter()
 	if token != "" {
 		r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/metrics" {
-				next.ServeHTTP(w, r)
-				return
-			}
-			provided := []byte(r.Header.Get("X-Internal-Token"))
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/metrics" {
+					next.ServeHTTP(w, r)
+					return
+				}
+				provided := []byte(r.Header.Get("X-Internal-Token"))
 				expected := []byte(token)
 				if len(provided) != len(expected) || subtle.ConstantTimeCompare(provided, expected) != 1 {
 					apperrors.WriteError(w, apperrors.ErrUnauthorized)

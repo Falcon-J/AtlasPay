@@ -38,7 +38,7 @@ func RequestLogger(next http.Handler) http.Handler {
 		next.ServeHTTP(wrapped, r)
 
 		duration := time.Since(start)
-		
+
 		path := r.URL.Path
 		if routeCtx := chi.RouteContext(r.Context()); routeCtx != nil && routeCtx.RoutePattern() != "" {
 			path = routeCtx.RoutePattern()

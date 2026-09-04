@@ -11,7 +11,7 @@ FROM alpine:3.19
 WORKDIR /app
 RUN apk --no-cache add ca-certificates tzdata
 COPY --from=builder /app/inventory-service .
-COPY --from=builder /app/scripts/migrations ./migrations
+COPY --from=builder /app/migrations ./migrations
 RUN adduser -D -g '' appuser
 USER appuser
 EXPOSE 8082

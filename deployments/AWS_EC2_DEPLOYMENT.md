@@ -1,5 +1,9 @@
 # AWS EC2 Free Tier Deployment Guide for AtlasPay
 
+> Historical guide: deployment details and host values are unverified. Use
+> `/health/live` for process liveness and `/health/ready` for deployment
+> readiness; `/health` is only the legacy detailed diagnostics route.
+
 ## 📋 Prerequisites
 
 ### AWS Account Setup
@@ -97,12 +101,12 @@ The EC2 instance runs a user-data script that:
 
 ```powershell
 # Test health endpoint
-curl http://54.123.45.67:8080/health
+curl http://YOUR_EC2_PUBLIC_IP:8080/health/ready
 # or
-Invoke-WebRequest -Uri http://54.123.45.67:8080/health -UseBasicParsing
+Invoke-WebRequest -Uri http://YOUR_EC2_PUBLIC_IP:8080/health/ready -UseBasicParsing
 
 # Expected response:
-# {"status":"healthy","db":"up","cache":"up"}
+# {"status":"ready"}
 ```
 
 ### Step 7: SSH into EC2 (optional)
@@ -126,7 +130,7 @@ docker-compose -f docker-compose.ec2.yml logs -f api-gateway
 │  ┌─────────────────────────────────────┐│
 │  │ AtlasPay API Gateway (Docker)       ││
 │  │  - Port 8080 (HTTP)                 ││
-│  │  - Health check: /health            ││
+│  │  - Readiness: /health/ready         ││
 │  └─────────────────────────────────────┘│
 │  ┌─────────────────────────────────────┐│
 │  │ Redis 7 (Docker)                    ││
@@ -336,7 +340,7 @@ http://ec2-54-123-45-67.compute-1.amazonaws.com:8080
 ```
 
 ### API Endpoints
-- **Health Check**: `GET /health`
+- **Readiness Check**: `GET /health/ready`
 - **Order API**: `GET/POST /orders`
 - **Payment API**: `GET/POST /payments`
 - **Inventory API**: `GET/POST /inventory`

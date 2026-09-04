@@ -110,4 +110,5 @@ kubectl get hpa
 echo ""
 echo "🎉 AtlasPay is deployed!"
 echo "Run 'kubectl get service api-gateway' to get the external IP"
-echo "Access: http://EXTERNAL_IP/health"
+echo "Liveness: http://EXTERNAL_IP/health/live"
+echo "Readiness: http://EXTERNAL_IP/health/ready"

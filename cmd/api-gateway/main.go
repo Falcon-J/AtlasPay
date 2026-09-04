@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -49,17 +48,10 @@ func main() {
 
 	logger.Info(ctx).Msg("database connection established successfully")
 
-	// Run migrations (auto-initialize schema)
-	migrationSQL, err := readMigrationFile(ctx)
-	if err != nil {
-		logger.Warn(ctx).Err(err).Msg("failed to read migration file, skipping auto-migration")
-	} else {
-		if err := db.ExecScript(ctx, string(migrationSQL)); err != nil {
-			logger.Error(ctx).Err(err).Msg("failed to run migrations")
-		} else {
-			logger.Info(ctx).Msg("auto-migration completed successfully")
-		}
+	if err := database.ApplyMigrations(ctx, db.Pool, "migrations"); err != nil {
+		logger.Fatal(ctx).Err(err).Msg("failed to apply database migrations")
 	}
+	logger.Info(ctx).Msg("database migrations applied")
 
 	// Initialize Redis cache
 	redisCache, err := cache.NewRedisCache(cfg.Redis.RedisAddr(), cfg.Redis.Password, cfg.Redis.DB)
@@ -356,37 +348,4 @@ func connectWithRetry(ctx context.Context, dbURL string) (*database.PostgresDB, 
 	}
 
 	return nil, fmt.Errorf("database connection exhausted all retry attempts")
-}
-
-// readMigrationFile attempts to read migration file from multiple possible paths
-// This handles different deployment scenarios (local, docker, render)
-func readMigrationFile(ctx context.Context) ([]byte, error) {
-	possiblePaths := []string{
-		"./migrations/001_init.sql",
-		"migrations/001_init.sql",
-		"/app/migrations/001_init.sql",
-		"../scripts/migrations/001_init.sql",
-		"scripts/migrations/001_init.sql",
-	}
-
-	// Also try based on executable directory
-	if ex, err := os.Executable(); err == nil {
-		exePath := filepath.Dir(ex)
-		possiblePaths = append(possiblePaths,
-			filepath.Join(exePath, "migrations/001_init.sql"),
-			filepath.Join(exePath, "../scripts/migrations/001_init.sql"),
-		)
-	}
-
-	var lastErr error
-	for _, path := range possiblePaths {
-		data, err := os.ReadFile(path)
-		if err == nil {
-			logger.Info(ctx).Str("path", path).Msg("migration file loaded")
-			return data, nil
-		}
-		lastErr = err
-	}
-
-	return nil, fmt.Errorf("migration file not found in any of %d paths (last error: %w)", len(possiblePaths), lastErr)
 }

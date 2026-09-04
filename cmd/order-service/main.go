@@ -34,12 +34,8 @@ func main() {
 	}
 	defer db.Close()
 
-	migration, err := os.ReadFile("migrations/001_init.sql")
-	if err != nil {
-		logger.Fatal(ctx).Err(err).Msg("failed to read migrations")
-	}
-	if err := db.ExecScript(ctx, string(migration)); err != nil {
-		logger.Fatal(ctx).Err(err).Msg("failed to run migrations")
+	if err := database.ApplyMigrations(ctx, db.Pool, "migrations"); err != nil {
+		logger.Fatal(ctx).Err(err).Msg("failed to apply database migrations")
 	}
 
 	redisCache, err := cache.NewRedisCache(cfg.Redis.RedisAddr(), cfg.Redis.Password, cfg.Redis.DB)
