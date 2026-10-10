@@ -52,6 +52,7 @@ jobs:
           ./scripts/contract-response-test.ps1
           ./scripts/smoke-fixtures-self-test.ps1
           ./scripts/saga-claim-poll-self-test.ps1
+          ./scripts/start-local-demo.ps1 -SelfTest
 
       - name: Check browser demo contracts
         run: node web/demo-test.cjs

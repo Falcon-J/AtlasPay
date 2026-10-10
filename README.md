@@ -35,7 +35,7 @@ It demonstrates backend reliability patterns used in payment and commerce system
 * Kafka DLQ publishing to `atlaspay.dlq`
 * Docker Compose smoke workflows for success and failure paths
 * GitHub Actions workflow for automated validation
-* Static frontend demo with live backend mode and browser simulation fallback
+* Static frontend demo with explicit backend and browser simulation modes
 
 Compose currently runs four application processes: the API gateway, Order/Saga,
 Payment, and Inventory services. The gateway owns public JWT authentication;
@@ -453,6 +453,10 @@ To configure a hosted backend API:
 | GET    | `/metrics` | Prometheus-compatible metrics   |
 
 ---
+
+## Local Browser Demo
+
+Run `./scripts/start-local-demo.ps1` with Docker Desktop and PowerShell 7, then open http://localhost:8085. See [local setup and interview walkthrough](docs/LOCAL_DEMO.md). Backend mode displays persisted order and saga results; the hosted page remains a simulation.
 
 ## Local Load Testing
 

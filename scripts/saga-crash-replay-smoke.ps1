@@ -71,13 +71,14 @@ try {
     }
     $orderId = $order.data.order.id
 
+    # HTTP readiness does not imply Kafka assignment after a restart; allow bounded rebalance time.
     $claim = ""
-    for ($attempt = 1; $attempt -le 30; $attempt++) {
+    for ($attempt = 1; $attempt -le 180; $attempt++) {
         $claim = Query-Claim -OrderId $orderId
         if ($claim -and $claim.Split("|")[1] -eq "running") {
             break
         }
-        Start-Sleep -Milliseconds 250
+        Start-Sleep -Milliseconds 500
     }
     if (-not $claim -or $claim.Split("|")[1] -ne "running") {
         throw "Order did not reach an active saga claim: $claim"

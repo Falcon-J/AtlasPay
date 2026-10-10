@@ -187,6 +187,8 @@
         }
         .explanation h3 { margin-bottom: 8px; }
         .explanation p { color: var(--muted); line-height: 1.6; }
+        #backend-result, #terminal { overflow-wrap: anywhere; }
+        #saga-steps { padding-left: 20px; margin-bottom: 12px; }
         
         .toggles {
             display: flex;
@@ -201,7 +203,7 @@
         }
 
         /* Switch */
-        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border); transition: .2s; border-radius: 24px; }
         .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: var(--muted); transition: .2s; border-radius: 50%; }
@@ -226,6 +228,16 @@
         .log-success { color: var(--success); }
         .log-warn { color: var(--warning); }
         .log-fail { color: var(--danger); }
+        @media (max-width: 600px) {
+            header { padding: 20px 16px; flex-wrap: wrap; gap: 16px; }
+            .score-board { gap: 16px; flex-wrap: wrap; }
+            main { padding: 20px 16px; gap: 24px; }
+            .pipeline-container { gap: 8px; margin-top: 16px; }
+            .node { width: 28%; min-width: 0; padding: 12px 6px; }
+            .node h2 { font-size: 1rem; }
+            .node p { font-size: 0.75rem; }
+            .controls { flex-direction: column; padding: 20px; }
+        }
     </style>
 </head>
 <body>
@@ -277,7 +289,9 @@
             <div class="control-group">
                 <h3>Checkout Controls</h3>
                 <button id="restock-button" class="btn-restock" onclick="restock()">Seed Inventory / Restock</button>
-                <button onclick="buyConsole(false)">Place Single Checkout</button>
+                <button id="checkout-button" onclick="buyConsole(false)">Place Single Checkout</button>
+                <button id="retry-button" onclick="retryBackend()" hidden>Retry Backend</button>
+                <button id="simulation-button" onclick="activateDemoMode()" hidden>Use Browser Simulation</button>
             </div>
             <div class="control-group">
                 <h3>System Simulation</h3>
@@ -300,6 +314,12 @@
             </div>
         </div>
 
+        <div class="explanation" id="backend-result" hidden aria-live="polite">
+            <h3>Persisted backend result</h3>
+            <p id="order-result"></p>
+            <ul id="saga-steps"></ul>
+            <button id="refresh-order-button" onclick="refreshBackendOrder()">Refresh This Order</button>
+        </div>
         <div id="terminal">
             <div>[System] Initializing checkout reliability simulator...</div>
         </div>
@@ -322,6 +342,9 @@
         let activeClient = null;
         let activeMode = "";
         let demoOrderSequence = 0;
+        let lastBackendOrderId = null;
+        let backendOrderPending = false;
+        let submissionUnknown = false;
 
         const term = document.getElementById('terminal');
         function log(msg, type='info') {
@@ -345,7 +368,9 @@
         async function request(path, options = {}) {
             const response = await fetchWithTimeout(`${API_BASE}${path}`, options, 3000);
             if (!response.ok) {
-                throw new Error(`${options.method || 'GET'} ${path} returned ${response.status}`);
+                const error = new Error(`${options.method || 'GET'} ${path} returned ${response.status}`);
+                error.status = response.status;
+                throw error;
             }
             return response.status === 204 ? null : response.json();
         }
@@ -380,14 +405,56 @@
                 inventoryCount = await this.stock();
             },
             async checkout(paymentShouldFail) {
-                await request('/api/orders', {
-                    method: 'POST',
-                    headers: authHeaders(),
-                    body: JSON.stringify({
-                        items: [{ sku: paymentShouldFail ? glitchSku : normalSku, quantity: 1 }]
-                    })
-                });
-                return { paymentFailed: paymentShouldFail };
+                backendOrderPending = true;
+                submissionUnknown = true;
+                lastBackendOrderId = null;
+                document.getElementById('checkout-button').disabled = true;
+                let created;
+                try {
+                    created = await request('/api/orders', {
+                        method: 'POST',
+                        headers: authHeaders(),
+                        body: JSON.stringify({
+                            items: [{ sku: paymentShouldFail ? glitchSku : normalSku, quantity: 1 }]
+                        })
+                    });
+                    if (!created?.data?.order?.id) throw new Error('Order response did not include an ID');
+                } catch (error) {
+                    if (error.status >= 400 && error.status < 500) {
+                        submissionUnknown = false;
+                        backendOrderPending = false;
+                    } else {
+                        document.getElementById('backend-result').hidden = false;
+                        document.getElementById('order-result').textContent = 'Checkout outcome unknown. The backend may have accepted this order. Inspect your orders before submitting again.';
+                        document.getElementById('saga-steps').replaceChildren();
+                        document.getElementById('refresh-order-button').hidden = true;
+                    }
+                    throw error;
+                }
+                submissionUnknown = false;
+                lastBackendOrderId = created.data.order.id;
+                renderBackendResult(created.data.order, null);
+                return this.waitForOrder(lastBackendOrderId);
+            },
+            async waitForOrder(orderId) {
+                for (let attempt = 0; attempt < 120; attempt++) {
+                    const result = await this.readOrder(orderId);
+                    if (['completed', 'compensated'].includes(result.saga?.status)) return result;
+                    await sleep(500);
+                }
+                log('[System] Order is still pending or requires recovery. Refresh this order; do not submit a replacement.', 'warn');
+            },
+            async readOrder(orderId) {
+                const response = await request(`/api/orders/${encodeURIComponent(orderId)}`, { headers: authHeaders() });
+                let saga = null;
+                try {
+                    const state = await request(`/api/orders/${encodeURIComponent(orderId)}/saga`, { headers: authHeaders() });
+                    saga = state.data;
+                } catch (error) {
+                    if (error.status !== 404) throw error;
+                }
+                renderBackendResult(response.data.order, saga);
+                return { order: response.data.order, saga };
             },
             async stock() {
                 const data = await request(`/api/inventory/${normalSku}`, {
@@ -399,9 +466,6 @@
 
         const simulatorClient = {
             async init() {
-                storeId = "BROWSER";
-                normalSku = "SIM-CONSOLE";
-                glitchSku = "SIM-FAIL";
                 document.getElementById('store-id-el').textContent = "[Browser simulation]";
             },
             async checkout(paymentShouldFail) {
@@ -426,7 +490,14 @@
             };
         }
 
-        async function activateDemoMode(backendFailed = false) {
+        async function activateDemoMode() {
+            if (isProcessing) return;
+            inventoryCount = 10;
+            revenue = 0;
+            document.getElementById('backend-result').hidden = true;
+            document.getElementById('checkout-button').disabled = false;
+            document.getElementById('retry-button').hidden = !API_BASE;
+            document.getElementById('simulation-button').hidden = true;
             document.getElementById('restock-button').disabled = false;
             activeMode = "demo";
             activeClient = simulatorClient;
@@ -434,11 +505,7 @@
             const badge = document.getElementById('mode-el');
             badge.textContent = "Demo Simulation Mode";
             badge.className = "mode-badge";
-            if (backendFailed) {
-                log("[System] Backend offline. Switched to Demo Simulation Mode.", 'warn');
-            } else {
-                log("[System] No public API URL configured. Using Demo Simulation Mode.", 'warn');
-            }
+            log("[System] Browser simulation selected. Outcomes below are simulated.", 'warn');
             log("[System] Browser simulation visualizes saga behavior; it does not run Kafka, PostgreSQL, or Redis.", 'info');
             log("[System] Run Docker Compose locally to test Kafka/PostgreSQL/Redis behavior.", 'info');
             updateUI();
@@ -446,13 +513,18 @@
 
         async function activateLiveMode() {
             await apiClient.health();
-            await apiClient.init();
+            if (jwtToken) inventoryCount = await apiClient.stock();
+            else await apiClient.init();
             document.getElementById('restock-button').disabled = true;
             document.getElementById('restock-button').title = "Inventory is seeded by an operator in backend mode.";
             activeMode = "live";
             activeClient = apiClient;
+            document.getElementById('store-id-el').textContent = `[Store ID: ${storeId}]`;
+            document.getElementById('checkout-button').disabled = backendOrderPending;
+            document.getElementById('retry-button').hidden = true;
+            document.getElementById('simulation-button').hidden = true;
             const badge = document.getElementById('mode-el');
-            badge.textContent = "Live Backend Mode";
+            badge.textContent = "Backend connected";
             badge.className = "mode-badge live";
             log(`[System] Live backend connected at ${API_BASE}.`, 'success');
             log("[System] Backend inventory uses operator-seeded LAPTOP-001 and FAIL-PAYMENT-001. Ask an operator to restock.", 'info');
@@ -461,32 +533,87 @@
 
         async function init() {
             if (!API_BASE) {
-                await activateDemoMode(false);
+                await activateDemoMode();
                 return;
             }
             try {
                 await activateLiveMode();
             } catch (error) {
-                await activateDemoMode(true);
+                backendUnavailable(error);
             }
         }
 
         function updateUI() {
             document.getElementById('inventory-el').textContent = inventoryCount;
-            document.getElementById('revenue-el').textContent = revenue;
+            document.getElementById('revenue-el').textContent = activeMode === 'demo' ? revenue : '—';
         }
 
         async function fetchGlobalStock() {
             if (activeMode !== "live" || !jwtToken || !normalSku || isProcessing) return;
             try {
                 const available = await apiClient.stock();
+                if (activeMode !== 'live' || isProcessing) return;
                 if (inventoryCount !== available) {
                     inventoryCount = available;
                     updateUI();
                 }
             } catch (error) {
-                await activateDemoMode(true);
+                if (activeMode !== 'live' || isProcessing) return;
+                backendUnavailable(error);
             }
+        }
+
+        function backendUnavailable(error) {
+            activeMode = 'offline';
+            activeClient = null;
+            document.getElementById('mode-el').textContent = 'Backend unavailable';
+            document.getElementById('mode-el').className = 'mode-badge';
+            document.getElementById('checkout-button').disabled = true;
+            document.getElementById('restock-button').disabled = true;
+            document.getElementById('retry-button').hidden = false;
+            document.getElementById('simulation-button').hidden = false;
+            log(`[System] Backend request failed: ${error.message}. No simulation was run.`, 'fail');
+            updateUI();
+        }
+
+        async function retryBackend() {
+            if (isProcessing || !API_BASE) return;
+            isProcessing = true;
+            try {
+                await activateLiveMode();
+                if (lastBackendOrderId) await apiClient.waitForOrder(lastBackendOrderId);
+                if (submissionUnknown) {
+                    document.getElementById('backend-result').hidden = false;
+                    log('[System] Connection restored, but checkout outcome remains unknown. Inspect your orders before submitting again.', 'warn');
+                }
+            } catch (error) { backendUnavailable(error); }
+            finally { isProcessing = false; }
+        }
+
+        function renderBackendResult(order, saga) {
+            backendOrderPending = !['completed', 'compensated'].includes(saga?.status);
+            document.getElementById('checkout-button').disabled = backendOrderPending;
+            document.getElementById('backend-result').hidden = false;
+            document.getElementById('refresh-order-button').hidden = false;
+            document.getElementById('order-result').textContent = `Order ${order.id} · ${order.status} · ${order.currency} ${order.total_price} · Saga ${saga?.status || 'not started'}`;
+            const steps = document.getElementById('saga-steps');
+            steps.replaceChildren();
+            for (const step of saga?.step_logs || []) {
+                const item = document.createElement('li');
+                item.textContent = `${step.step_name}: ${step.status}${step.error ? ` (${step.error})` : ''}`;
+                steps.appendChild(item);
+            }
+        }
+
+        async function refreshBackendOrder() {
+            if (isProcessing || !lastBackendOrderId || activeMode !== 'live') return;
+            isProcessing = true;
+            try {
+                await apiClient.waitForOrder(lastBackendOrderId);
+                inventoryCount = await apiClient.stock();
+                updateUI();
+            } catch (error) { backendUnavailable(error); }
+            finally { isProcessing = false; }
         }
 
         const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -554,25 +681,30 @@
         }
 
         async function buyConsole(isBot = false) {
-            if (!activeClient || isProcessing) return;
+            if (!activeClient || isProcessing || (activeMode === 'live' && backendOrderPending)) return;
             if (inventoryCount <= 0) {
                 log("[System] Checkout rejected: no inventory available.", "fail");
                 return;
             }
 
             const isGlitch = document.getElementById('glitch-toggle').checked;
+            const backendCheckout = activeMode === 'live';
+            isProcessing = true;
             try {
                 const result = await activeClient.checkout(isGlitch);
-                await runSagaAnimation(result);
-            } catch (error) {
-                if (activeMode === "live") {
-                    await activateDemoMode(true);
-                    const result = await simulatorClient.checkout(isGlitch);
+                if (backendCheckout) {
+                    inventoryCount = await apiClient.stock();
+                    updateUI();
+                } else {
                     await runSagaAnimation(result);
+                }
+            } catch (error) {
+                if (backendCheckout) {
+                    backendUnavailable(error);
                 } else {
                     log("[System] Checkout simulation failed.", "fail");
                 }
-            }
+            } finally { isProcessing = false; }
         }
 
         async function restock() {
@@ -583,14 +715,7 @@
                 updateUI();
                 log("[System] Inventory seeded with 10 units.", "success");
             } catch (error) {
-                if (activeMode === "live") {
-                    await activateDemoMode(true);
-                    inventoryCount += await simulatorClient.restock();
-                    updateUI();
-                    log("[System] Inventory seeded with 10 simulated units.", "success");
-                } else {
-                    log("[System] Inventory restock failed.", "fail");
-                }
+                log("[System] Inventory restock failed.", "fail");
             }
         }
 

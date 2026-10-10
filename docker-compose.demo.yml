@@ -1,0 +1,12 @@
+services:
+  demo-ui:
+    image: nginx:1.28-alpine
+    ports:
+      - "127.0.0.1:8085:80"
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
