@@ -92,5 +92,4 @@ refresh rotation, money migration, and hosted deployment verification.
   An explicit absent-claim guard and its standalone self-check cover native
   command empty output without relying on null-to-string casting.
 
-No commit, push, or deployment was performed. Remote CI and hosted behavior have
-not been validated for this uncommitted patch.
+The implementation was committed and pushed as `024804b`. Verification above was recorded before publication. Remote CI remains a separate gate for that commit. No deployment or hosted verification was performed.
