@@ -172,7 +172,7 @@ func NewConsumerWithOptions(
 		// A zero interval makes CommitMessages synchronous. The consumer only
 		// acknowledges after the broker confirms the offset commit.
 		CommitInterval: 0,
-		StartOffset:    kafka.LastOffset,
+		StartOffset:    kafka.FirstOffset, // Uncommitted partitions must consume retained outbox events.
 	})
 
 	return &Consumer{

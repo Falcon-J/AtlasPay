@@ -46,6 +46,16 @@ jobs:
       - name: Validate Docker Compose
         run: docker compose config --quiet
 
+      - name: Check smoke fixture and HTTP assertions
+        shell: pwsh
+        run: |
+          ./scripts/contract-response-test.ps1
+          ./scripts/smoke-fixtures-self-test.ps1
+          ./scripts/saga-claim-poll-self-test.ps1
+
+      - name: Check browser demo contracts
+        run: node web/demo-test.cjs
+
   compose-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -133,6 +143,16 @@ jobs:
             atlaspay-order-test \
             go test -buildvcs=false ./internal/order -run TestRepositoryClaimSagaLease -count=1 -v \
             2>&1 | tee saga-claim-integration.log
+          docker run --rm --network "$NETWORK" \
+            -e ATLASPAY_INTEGRATION=1 \
+            -w /app \
+            atlaspay-order-test \
+            go test -buildvcs=false ./internal/common/kafka -run TestConsumerRetainedEvents -count=1 -v \
+            2>&1 | tee kafka-retained-events-integration.log
+
+      - name: Run public security boundary smoke
+        shell: pwsh
+        run: ./scripts/security-boundary-smoke.ps1
 
       - name: Run DLQ smoke workflow
         shell: pwsh

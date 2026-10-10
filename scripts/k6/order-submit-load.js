@@ -33,6 +33,9 @@ export const options = {
 };
 
 export function setup() {
+    if (!__ENV.ADMIN_TOKEN) {
+        throw new Error('ADMIN_TOKEN is required for inventory setup; checkout uses a separate ordinary user.');
+    }
     const stamp = Date.now();
     const auth = http.post(`${baseURL}/api/auth/register`, JSON.stringify({
         email: `submit-load-${stamp}@example.com`,
@@ -40,7 +43,9 @@ export function setup() {
         first_name: 'Submit',
         last_name: 'Load',
     }), { headers: { 'Content-Type': 'application/json' } });
-    check(auth, { 'load user registered': (r) => r.status === 201 });
+    if (!check(auth, { 'load user registered': (r) => r.status === 201 })) {
+        throw new Error('Load user registration failed');
+    }
     const token = JSON.parse(auth.body).data.access_token;
     for (let i = 0; i < skuCount; i += 1) {
         const restock = http.post(`${baseURL}/api/inventory/restock`, JSON.stringify({
@@ -49,10 +54,12 @@ export function setup() {
         }), {
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
+                Authorization: `Bearer ${__ENV.ADMIN_TOKEN}`,
             },
         });
-        check(restock, { 'load inventory seeded': (r) => r.status === 200 });
+        if (!check(restock, { 'load inventory seeded': (r) => r.status === 200 })) {
+            throw new Error('Inventory setup failed; supply a valid admin token');
+        }
     }
     return { token };
 }

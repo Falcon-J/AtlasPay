@@ -22,6 +22,13 @@ spec:
         ports:
         - containerPort: 8080
         env:
+        - name: APP_ENV
+          value: production
+        - name: CORS_ALLOWED_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: atlaspay-config
+              key: cors_allowed_origins
         - name: SERVER_PORT
           value: "8080"
         - name: RATE_LIMIT_REQUESTS

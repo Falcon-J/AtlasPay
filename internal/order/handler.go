@@ -213,14 +213,38 @@ func (h *Handler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetSagaState handles saga state retrieval
+// @Summary Get saga state for an owned order (or as admin)
+// @Tags Orders
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Order ID"
+// @Success 200 {object} saga.Saga
+// @Failure 401 {object} errors.AppError
+// @Failure 403 {object} errors.AppError
+// @Failure 404 {object} errors.AppError
+// @Router /orders/{id}/saga [get]
 func (h *Handler) GetSagaState(w http.ResponseWriter, r *http.Request) {
-	_, ok := auth.UserFromContext(r.Context())
+	claims, ok := auth.UserFromContext(r.Context())
 	if !ok {
 		errors.WriteError(w, errors.ErrUnauthorized)
 		return
 	}
 
 	orderID := chi.URLParam(r, "id")
+	order, err := h.service.GetOrder(r.Context(), orderID)
+	if err != nil {
+		if appErr, ok := err.(*errors.AppError); ok {
+			errors.WriteError(w, appErr)
+			return
+		}
+		errors.WriteError(w, errors.ErrInternalServer)
+		return
+	}
+	if order.UserID != claims.UserID && claims.Role != auth.RoleAdmin {
+		errors.WriteError(w, errors.ErrForbidden)
+		return
+	}
+
 	sg, err := h.service.GetSagaState(r.Context(), orderID)
 	if err != nil {
 		if appErr, ok := err.(*errors.AppError); ok {

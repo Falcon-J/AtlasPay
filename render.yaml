@@ -7,6 +7,10 @@ services:
     healthCheckPath: /health/ready
     autoDeploy: true
     envVars:
+      - key: APP_ENV
+        value: production
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
       - key: SERVER_PORT
         value: "8080"
       - key: DB_HOST

@@ -23,6 +23,9 @@ func main() {
 	defer stop()
 
 	cfg := config.Load()
+	if err := cfg.Validate("payment-service"); err != nil {
+		logger.Fatal(ctx).Err(err).Msg("invalid security configuration")
+	}
 	db, err := database.ConnectWithRetry(ctx, cfg.Database.DatabaseURL())
 	if err != nil {
 		logger.Fatal(ctx).Err(err).Msg("failed to connect to database")

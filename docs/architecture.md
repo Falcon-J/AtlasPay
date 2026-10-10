@@ -32,6 +32,11 @@ state in PostgreSQL, and compensates on a failed step.
 - Kafka delivery is at least once. The consumer commits an offset only after
   the handler succeeds, or after a failure is durably recorded and the DLQ
   publication succeeds.
+- A consumer partition without a committed group offset starts at the earliest
+  retained record. Existing committed offsets remain authoritative on restart.
+  This prevents accepted outbox events from being skipped before the first
+  consumer assignment. Recovery depends on Kafka retaining those records;
+  broker data loss or expired retention needs a separate recovery procedure.
 - Invalid JSON and invalid event envelopes are represented as deterministic
   DLQ events. The raw malformed body is retained as base64 JSON so arbitrary
   bytes remain safe to store and inspect.

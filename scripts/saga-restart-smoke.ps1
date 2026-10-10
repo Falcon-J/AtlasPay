@@ -3,6 +3,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. "$PSScriptRoot/smoke-fixtures.ps1"
 
 function Invoke-AtlasPay {
     param(
@@ -32,10 +33,7 @@ $auth = Invoke-AtlasPay -Method POST -Path "/api/auth/register" -Body @{
     last_name = "Restart"
 }
 $token = $auth.data.access_token
-Invoke-AtlasPay -Method POST -Path "/api/inventory/restock" -Token $token -Body @{
-    sku = "LAPTOP-001"
-    quantity = 1
-} | Out-Null
+Add-SmokeInventory -Sku "LAPTOP-001"
 $order = Invoke-AtlasPay -Method POST -Path "/api/orders/" -Token $token -Body @{
     items = @(@{ sku = "LAPTOP-001"; quantity = 1 })
 }

@@ -107,9 +107,11 @@ services:
       inventory-service:
         condition: service_healthy
     environment:
+      CORS_ALLOWED_ORIGINS: http://localhost:8085
       SERVER_PORT: "8080"
       RATE_LIMIT_REQUESTS: "100000"
       RATE_LIMIT_BURST: "100000"
+      APP_ENV: dev
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_USER: atlaspay
@@ -158,6 +160,7 @@ services:
       inventory-service:
         condition: service_healthy
     environment:
+      APP_ENV: dev
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_USER: atlaspay
@@ -197,6 +200,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      APP_ENV: dev
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_USER: atlaspay
@@ -228,6 +232,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      APP_ENV: dev
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_USER: atlaspay

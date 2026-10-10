@@ -24,6 +24,8 @@ spec:
         - name: http
           containerPort: 8081
         env:
+        - name: APP_ENV
+          value: production
         - name: PAYMENT_SERVICE_PORT
           value: "8081"
         - name: DB_HOST
@@ -132,6 +134,8 @@ spec:
         - name: http
           containerPort: 8082
         env:
+        - name: APP_ENV
+          value: production
         - name: INVENTORY_SERVICE_PORT
           value: "8082"
         - name: DB_HOST
@@ -250,6 +254,8 @@ spec:
         - name: http
           containerPort: 8083
         env:
+        - name: APP_ENV
+          value: production
         - name: ORDER_SERVICE_PORT
           value: "8083"
         - name: DB_HOST

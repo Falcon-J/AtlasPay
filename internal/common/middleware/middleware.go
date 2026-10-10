@@ -117,21 +117,57 @@ func RequireRole(roles ...auth.Role) func(http.Handler) http.Handler {
 	}
 }
 
-// CORS handles CORS headers
-func CORS(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Correlation-ID")
-		w.Header().Set("Access-Control-Expose-Headers", "X-Correlation-ID")
-
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+// CORS permits only configured origins and same-origin requests.
+func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Add("Vary", "Origin")
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			scheme := "http"
+			if r.TLS != nil {
+				scheme = "https"
+			}
+			allowed := origin == scheme+"://"+r.Host
+			for _, candidate := range allowedOrigins {
+				if candidate == "*" || candidate == origin {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				http.Error(w, "origin not allowed", http.StatusForbidden)
+				return
+			}
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Expose-Headers", "X-Correlation-ID")
+			if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+				w.Header().Add("Vary", "Access-Control-Request-Method")
+				w.Header().Add("Vary", "Access-Control-Request-Headers")
+				method := r.Header.Get("Access-Control-Request-Method")
+				if !strings.Contains(",GET,POST,PUT,DELETE,PATCH,", ","+method+",") {
+					http.Error(w, "method not allowed", http.StatusForbidden)
+					return
+				}
+				for _, header := range strings.Split(r.Header.Get("Access-Control-Request-Headers"), ",") {
+					switch strings.ToLower(strings.TrimSpace(header)) {
+					case "", "content-type", "authorization", "x-correlation-id":
+					default:
+						http.Error(w, "header not allowed", http.StatusForbidden)
+						return
+					}
+				}
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Correlation-ID")
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // Recoverer recovers from panics

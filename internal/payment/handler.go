@@ -31,52 +31,21 @@ func (h *Handler) Routes() chi.Router {
 	return r
 }
 
-// ProcessPayment handles payment processing
-// @Summary Process a payment
+// ProcessPayment rejects standalone charges; checkout owns payment initiation.
+// @Summary Payments are initiated by checkout
 // @Tags Payments
-// @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body CreatePaymentRequest true "Payment details"
-// @Success 201 {object} PaymentResponse
-// @Failure 400 {object} errors.AppError
+// @Failure 401 {object} errors.AppError
+// @Failure 405 {object} errors.AppError
 // @Router /payments [post]
 func (h *Handler) ProcessPayment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.UserFromContext(r.Context())
-	if !ok {
+	if _, ok := auth.UserFromContext(r.Context()); !ok {
 		errors.WriteError(w, errors.ErrUnauthorized)
 		return
 	}
 
-	var req CreatePaymentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		errors.WriteError(w, errors.ErrBadRequest.WithDetails("invalid request body"))
-		return
-	}
-
-	if req.OrderID == "" || req.Amount <= 0 || req.IdempotencyKey == "" {
-		errors.WriteError(w, errors.ErrBadRequest.WithDetails("order_id, amount, and idempotency_key are required"))
-		return
-	}
-
-	payment, err := h.service.ProcessPaymentV2(r.Context(), claims.UserID, &req)
-	if err != nil {
-		if appErr, ok := err.(*errors.AppError); ok {
-			// For payment failures, still return the payment object
-			if payment != nil {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(appErr.Code)
-				json.NewEncoder(w).Encode(PaymentResponse{Payment: payment})
-				return
-			}
-			errors.WriteError(w, appErr)
-			return
-		}
-		errors.WriteError(w, errors.ErrInternalServer)
-		return
-	}
-
-	response.Created(w, PaymentResponse{Payment: payment})
+	errors.WriteError(w, errors.New(http.StatusMethodNotAllowed, "payments are initiated by checkout"))
 }
 
 // GetPayment handles payment retrieval

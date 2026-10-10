@@ -276,7 +276,7 @@
         <div class="controls">
             <div class="control-group">
                 <h3>Checkout Controls</h3>
-                <button class="btn-restock" onclick="restock()">Seed Inventory / Restock</button>
+                <button id="restock-button" class="btn-restock" onclick="restock()">Seed Inventory / Restock</button>
                 <button onclick="buyConsole(false)">Place Single Checkout</button>
             </div>
             <div class="control-group">
@@ -374,10 +374,10 @@
                 if (!login?.data?.access_token) throw new Error('Login response did not include an access token');
                 jwtToken = login.data.access_token;
                 storeId = login.data.user?.id?.substring(0, 8) || "LIVE";
-                normalSku = `CONSOLE-${storeId}`;
-                glitchSku = `FAIL-${storeId}`;
+                normalSku = "LAPTOP-001";
+                glitchSku = "FAIL-PAYMENT-001";
                 document.getElementById('store-id-el').textContent = `[Store ID: ${storeId}]`;
-                await this.restock();
+                inventoryCount = await this.stock();
             },
             async checkout(paymentShouldFail) {
                 await request('/api/orders', {
@@ -388,14 +388,6 @@
                     })
                 });
                 return { paymentFailed: paymentShouldFail };
-            },
-            async restock() {
-                await request('/api/inventory/restock', {
-                    method: 'POST',
-                    headers: authHeaders(),
-                    body: JSON.stringify({ sku: normalSku, quantity: 10 })
-                });
-                return 10;
             },
             async stock() {
                 const data = await request(`/api/inventory/${normalSku}`, {
@@ -435,6 +427,7 @@
         }
 
         async function activateDemoMode(backendFailed = false) {
+            document.getElementById('restock-button').disabled = false;
             activeMode = "demo";
             activeClient = simulatorClient;
             await simulatorClient.init();
@@ -454,12 +447,15 @@
         async function activateLiveMode() {
             await apiClient.health();
             await apiClient.init();
+            document.getElementById('restock-button').disabled = true;
+            document.getElementById('restock-button').title = "Inventory is seeded by an operator in backend mode.";
             activeMode = "live";
             activeClient = apiClient;
             const badge = document.getElementById('mode-el');
             badge.textContent = "Live Backend Mode";
             badge.className = "mode-badge live";
             log(`[System] Live backend connected at ${API_BASE}.`, 'success');
+            log("[System] Backend inventory uses operator-seeded LAPTOP-001 and FAIL-PAYMENT-001. Ask an operator to restock.", 'info');
             updateUI();
         }
 
@@ -580,7 +576,7 @@
         }
 
         async function restock() {
-            if (!activeClient || isProcessing) return;
+            if (!activeClient || isProcessing || activeMode === "live") return;
 
             try {
                 inventoryCount += await activeClient.restock();

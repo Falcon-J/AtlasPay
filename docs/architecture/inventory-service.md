@@ -29,7 +29,7 @@ commits, restocking, reservation idempotency, and its cache-aside behavior.
 
 The gateway uses `internal/inventory.Client`, while local tests can use the
 existing `inventory.Service` adapter. The private contract requires
-`X-Internal-Token` when `INVENTORY_SERVICE_TOKEN` is configured. In production,
+`X-Internal-Token` with `INVENTORY_SERVICE_TOKEN`, required outside explicit `APP_ENV=dev`. In production,
 replace the local Compose token with a secret or mTLS identity and do not
 publish port 8082 publicly.
 

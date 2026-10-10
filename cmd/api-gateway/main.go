@@ -36,6 +36,9 @@ func main() {
 
 	// Load configuration
 	cfg := config.Load()
+	if err := cfg.Validate("api-gateway"); err != nil {
+		logger.Fatal(ctx).Err(err).Msg("invalid security configuration")
+	}
 
 	logger.Info(ctx).Str("port", cfg.Server.Port).Msg("starting API Gateway")
 
@@ -139,7 +142,7 @@ func main() {
 
 	// Global middleware
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.CORS)
+	r.Use(middleware.CORS(cfg.CORSAllowedOrigins))
 	r.Use(middleware.RequestLogger)
 	r.Use(middleware.RateLimit(rateLimiter))
 	r.Use(middleware.Timeout(30 * time.Second))

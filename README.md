@@ -9,6 +9,10 @@
 
 AtlasPay is a Kafka-backed distributed checkout and payment platform built with Go, Kafka, PostgreSQL, Redis, and Docker.
 
+See [the security contract and validation boundaries](docs/SECURITY_PASS.md)
+before configuring or exercising the public API. Checkout owns payment
+initiation; inventory mutations are private operations or admin-only restock.
+
 See [`docs/LEARNING_PATH.md`](docs/LEARNING_PATH.md) for the staged path from
 the current gateway-plus-payment-and-inventory topology to independently
 deployed services.
@@ -421,13 +425,14 @@ To configure a hosted backend API:
 | POST   | `/api/orders`             | Create order |
 | GET    | `/api/orders`             | List orders  |
 | GET    | `/api/orders/{id}`        | Get order    |
+| GET    | `/api/orders/{id}/saga`   | Saga state, owner/admin only |
 | PATCH  | `/api/orders/{id}/cancel` | Cancel order |
 
 ### Payments
 
 | Method | Endpoint                    | Description                          |
 | ------ | --------------------------- | ------------------------------------ |
-| POST   | `/api/payments`             | Process payment with idempotency key |
+| POST   | `/api/payments`             | Disabled (405); initiate checkout through orders |
 | GET    | `/api/payments/{id}`        | Get payment                          |
 | POST   | `/api/payments/{id}/refund` | Refund payment, admin only           |
 
@@ -435,9 +440,8 @@ To configure a hosted backend API:
 
 | Method | Endpoint                 | Description       |
 | ------ | ------------------------ | ----------------- |
-| GET    | `/api/inventory/{sku}`   | Check stock       |
-| POST   | `/api/inventory/reserve` | Reserve inventory |
-| POST   | `/api/inventory/release` | Release inventory |
+| GET    | `/api/inventory/{sku}`   | Check stock, authenticated |
+| POST   | `/api/inventory/restock` | Restock, admin only |
 
 ### System
 

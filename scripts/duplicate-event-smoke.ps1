@@ -3,6 +3,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. "$PSScriptRoot/smoke-fixtures.ps1"
 
 function Invoke-AtlasPay {
     param(
@@ -62,10 +63,7 @@ $auth = Invoke-AtlasPay -Method POST -Path "/api/auth/register" -Body @{
 }
 $token = $auth.data.access_token
 
-Invoke-AtlasPay -Method POST -Path "/api/inventory/restock" -Token $token -Body @{
-    sku = "LAPTOP-001"
-    quantity = 1
-} | Out-Null
+Add-SmokeInventory -Sku "LAPTOP-001"
 
 $orderResponse = Invoke-AtlasPay -Method POST -Path "/api/orders/" -Token $token -Body @{
     items = @(@{ sku = "LAPTOP-001"; quantity = 1 })
@@ -99,7 +97,8 @@ $payload = @{
     currency = "USD"
 }
 
-foreach ($eventId in @("duplicate-a-$stamp", "duplicate-b-$stamp")) {
+$replayIds = @("duplicate-a-$stamp", "duplicate-b-$stamp")
+foreach ($eventId in $replayIds) {
     Publish-Event -Event @{
         id = $eventId
         type = "order.created"
@@ -111,13 +110,33 @@ foreach ($eventId in @("duplicate-a-$stamp", "duplicate-b-$stamp")) {
     }
 }
 
-Start-Sleep -Seconds 4
+$consumed = $false
+for ($attempt = 0; $attempt -lt 60; $attempt++) {
+    # The consumer emits this message only after its synchronous offset commit.
+    $logs = docker compose logs --no-color --tail=1000 order-service
+    if ($LASTEXITCODE -ne 0) { throw "Failed to inspect duplicate consumption" }
+    $missing = @($replayIds | Where-Object {
+        $id = $_
+        -not ($logs | Where-Object { $_ -match 'event processed' -and $_ -match [regex]::Escape($id) })
+    })
+    if ($missing.Count -eq 0) { $consumed = $true; break }
+    Start-Sleep -Milliseconds 500
+}
+if (-not $consumed) { throw "Duplicate events were not acknowledged: $($missing -join ', ')" }
 $after = Query-Reservations -OrderId $orderId
 if ($before -ne "1|1" -or $after -ne "1|1") {
     throw "Duplicate event changed reservation state: before=$before after=$after"
 }
+$paymentCount = docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U atlaspay -d atlaspay -At -c "SELECT count(*) FROM payments WHERE order_id = '$orderId';"
+if ($LASTEXITCODE -ne 0 -or [int]$paymentCount -ne 1) {
+    throw "Duplicate event did not preserve exactly one payment: $paymentCount"
+}
+$orderAfterReplay = Invoke-AtlasPay -Method GET -Path "/api/orders/$orderId" -Token $token
+if ($orderAfterReplay.data.order.status -ne "confirmed") { throw "Duplicate replay changed the confirmed order" }
 
 Write-Host "AtlasPay duplicate-event smoke test passed."
 Write-Host "Order status: $orderStatus"
 Write-Host "Reservations before: $before"
 Write-Host "Reservations after: $after"
+Write-Host "Payments after replay: $paymentCount"
+Write-Host "Acknowledged replay events: $($replayIds -join ', ')"

@@ -3,6 +3,7 @@ kind: ConfigMap
 metadata:
   name: atlaspay-config
 data:
+  cors_allowed_origins: "" # Set exact browser origins when cross-origin access is needed.
   db_host: "postgres-service"
   db_port: "5432"
   db_name: "atlaspay"
@@ -25,11 +26,11 @@ type: Opaque
 stringData:
   db_user: "atlaspay"
   db_password: "atlaspay-prod-password-change-me"
-  jwt_access_secret: "atlaspay-access-secret-prod-change-me"
-  jwt_refresh_secret: "atlaspay-refresh-secret-prod-change-me"
-  order_service_token: "atlaspay-order-internal-token-change-me"
-  payment_service_token: "atlaspay-payment-internal-token-change-me"
-  inventory_service_token: "atlaspay-inventory-internal-token-change-me"
+  jwt_access_secret: "" # Supply a generated secret of at least 32 bytes.
+  jwt_refresh_secret: "" # Supply a different generated secret of at least 32 bytes.
+  order_service_token: "" # Supply the same private token to listener and clients.
+  payment_service_token: "" # Supply the same private token to listener and clients.
+  inventory_service_token: "" # Supply the same private token to listener and clients.
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

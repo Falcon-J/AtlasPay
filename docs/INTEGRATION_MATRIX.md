@@ -9,6 +9,8 @@ legacy detailed diagnostics route.
 
 | Case | Observable assertion | Workflow |
 | --- | --- | --- |
+| Public authorization | Two ordinary users cannot mutate stock or inspect each other's saga; admin restock and owned checkout succeed | `security-boundary-smoke.ps1` |
+| Internal authorization | Missing and wrong tokens produce HTTP 401 on all three internal listeners | service contract smoke scripts |
 | Liveness | `/health/live` reports the process is alive without dependency checks | Compose healthcheck |
 | Health and dependencies | `/health/ready` reports the gateway is ready for useful work | `demo-smoke.ps1` |
 | Ordered migrations | Both versioned migrations are applied once and a second run is a no-op | `TestApplyMigrationsIsIdempotentAgainstPostgres` |
@@ -26,8 +28,8 @@ legacy detailed diagnostics route.
 | Gateway-to-payment contract | Checkout calls the standalone payment process | `demo-smoke.ps1` + service logs |
 | Gateway-to-inventory contract | Checkout calls the standalone inventory process | `demo-smoke.ps1` + service logs |
 | Gateway-to-order contract | Gateway proxies checkout to Order/Saga | `demo-smoke.ps1` + service logs |
-| Payment concurrency | 20 concurrent requests produce one payment row | evidence output |
-| Idempotency conflict | Same key with different data returns `409` | evidence output |
+| Payment concurrency | Historical public contract evidence; current public creation is disabled | historical evidence output; internal payment tests |
+| Idempotency conflict | Same key with different data returns `409` at the private payment boundary | internal payment tests |
 | Kafka publication | Order event is published to `atlaspay.orders` | `demo-smoke.ps1` |
 | Kafka consumption | Order event is processed by the worker | `demo-smoke.ps1` |
 | Retry backoff | Invalid event is attempted three times | `dlq-smoke.ps1` |
@@ -37,6 +39,7 @@ legacy detailed diagnostics route.
 | Duplicate reservation | Replayed events leave one reservation | `duplicate-event-smoke.ps1` |
 | Outbox atomicity | Order and outbox row are created together | `outbox-recovery-smoke.ps1` |
 | Outbox recovery | Kafka outage is recovered after restart | `outbox-recovery-smoke.ps1` |
+| Retained events and committed offsets | New groups consume prepublished events; restarted groups resume after the committed offset | `TestConsumerRetainedEvents` against Kafka |
 | Saga persistence | Five step logs are persisted | `saga-restart-smoke.ps1` |
 | Saga restart | Completed state survives API restart | `saga-restart-smoke.ps1` |
 | In-flight saga claim | Same-event retry refreshes, active different replay is rejected, expired lease is reclaimable | `TestRepositoryClaimSagaLease` |

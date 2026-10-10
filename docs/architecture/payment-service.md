@@ -25,7 +25,7 @@ transitions, and refunds.
 
 The gateway uses `internal/payment.Client`, while local tests can use the
 existing `payment.Service` adapter. The private contract requires
-`X-Internal-Token` when `PAYMENT_SERVICE_TOKEN` is configured. In production,
+`X-Internal-Token` with `PAYMENT_SERVICE_TOKEN`, required outside explicit `APP_ENV=dev`. In production,
 replace the local Compose token with a secret or mTLS identity and do not
 publish port 8081 publicly.
 

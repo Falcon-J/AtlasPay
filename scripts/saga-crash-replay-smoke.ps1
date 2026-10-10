@@ -3,6 +3,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. "$PSScriptRoot/smoke-fixtures.ps1"
 $paymentWasStopped = $false
 
 function Invoke-AtlasPay {
@@ -33,6 +34,7 @@ function Query-Claim {
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to query saga claim"
     }
+    if ($null -eq $row) { return "" }
     $row.Trim()
 }
 
@@ -62,10 +64,7 @@ try {
         last_name = "Replay"
     }
     $token = $auth.data.access_token
-    Invoke-AtlasPay -Method POST -Path "/api/inventory/restock" -Token $token -Body @{
-        sku = "LAPTOP-001"
-        quantity = 1
-    } | Out-Null
+    Add-SmokeInventory -Sku "LAPTOP-001"
 
     $order = Invoke-AtlasPay -Method POST -Path "/api/orders/" -Token $token -Body @{
         items = @(@{ sku = "LAPTOP-001"; quantity = 1 })

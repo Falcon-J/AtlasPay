@@ -3,6 +3,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. "$PSScriptRoot/smoke-fixtures.ps1"
 
 function Invoke-AtlasPay {
     param(
@@ -60,9 +61,7 @@ function Wait-Saga {
         } catch {
             if ($_.Exception.Response) {
                 $lastHttpStatus = [int]$_.Exception.Response.StatusCode
-                $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-                $lastResponseBody = $reader.ReadToEnd()
-                $reader.Close()
+                $lastResponseBody = $_.ErrorDetails.Message
             } else {
                 $lastResponseBody = $_.Exception.Message
             }
@@ -107,10 +106,7 @@ if (-not $token) {
 
 Write-Host "Seeding smoke-test inventory..."
 foreach ($sku in @("LAPTOP-001", "HEADPHONES-001", "FAIL-PAYMENT-001")) {
-    Invoke-AtlasPay -Method POST -Path "/api/inventory/restock" -Token $token -Body @{
-        sku = $sku
-        quantity = 1
-    } | Out-Null
+    Add-SmokeInventory -Sku $sku
 }
 
 Write-Host "Creating successful saga order..."
@@ -140,20 +136,8 @@ if ($failedOrder.data.order.status -ne "failed") {
     throw "Failed order did not become failed"
 }
 
-Write-Host "Checking idempotent payment behavior..."
-$idemKey = "DEMO-IDEMP-$stamp"
-$paymentBody = @{
-    order_id = $successOrderId
-    amount = 12.34
-    currency = "USD"
-    payment_method = "demo_card"
-    idempotency_key = $idemKey
-}
-$paymentOne = Invoke-AtlasPay -Method POST -Path "/api/payments/" -Token $token -Body $paymentBody
-$paymentTwo = Invoke-AtlasPay -Method POST -Path "/api/payments/" -Token $token -Body $paymentBody
-if ($paymentOne.data.payment.id -ne $paymentTwo.data.payment.id) {
-    throw "Idempotent payment retry created a different payment"
-}
+Write-Host "Checking internal replay of the existing saga payment..."
+$paymentId = Test-SmokePaymentReplay -OrderId $successOrderId
 
 Write-Host "Checking metrics endpoint..."
 $metrics = Invoke-WebRequest "$BaseUrl/metrics" -UseBasicParsing
@@ -165,4 +149,4 @@ Write-Host ""
 Write-Host "AtlasPay demo smoke test passed."
 Write-Host "Successful order: $successOrderId, saga: $($successSaga.status), order: $($successOrder.data.order.status)"
 Write-Host "Failed order: $failedOrderId, saga: $($failedSaga.status), order: $($failedOrder.data.order.status)"
-Write-Host "Idempotent payment reused payment id: $($paymentOne.data.payment.id)"
+Write-Host "Idempotent payment reused payment id: $paymentId"
