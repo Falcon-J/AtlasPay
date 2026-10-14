@@ -1,4 +1,4 @@
-# AtlasPay — Distributed Payment Platform
+# AtlasPay — Checkout Reliability Lab
 
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?style=flat\&logo=go)](https://go.dev/)
 [![Kafka](https://img.shields.io/badge/Kafka-Event--Driven-231F20?style=flat\&logo=apachekafka)](https://kafka.apache.org/)
@@ -7,7 +7,9 @@
 [![Docker](https://img.shields.io/badge/Docker%20Compose-Validated-2496ED?style=flat\&logo=docker)](https://docs.docker.com/compose/)
 [![CI](https://github.com/Falcon-J/AtlasPay/actions/workflows/ci.yml/badge.svg)](https://github.com/Falcon-J/AtlasPay/actions/workflows/ci.yml)
 
-AtlasPay is a Kafka-backed distributed checkout and payment platform built with Go, Kafka, PostgreSQL, Redis, and Docker.
+AtlasPay is a Go/Kafka checkout reliability lab built with PostgreSQL, Redis, and Docker Compose. It explores how order, payment, and inventory workflows handle duplicate delivery, partial failure, retries, and process restarts.
+
+The local stack runs four application processes: API Gateway, Order/Saga, Payment, and Inventory. PostgreSQL and Redis remain shared while service ownership is being separated. Payment behavior is exercised through the project's test workflows; this is not a production payment processor or evidence of production-scale deployment.
 
 See [the security contract and validation boundaries](docs/SECURITY_PASS.md)
 before configuring or exercising the public API. Checkout owns payment
@@ -21,11 +23,11 @@ It demonstrates backend reliability patterns used in payment and commerce system
 
 ---
 
-## Highlights
+## Engineering Highlights
 
 * Kafka-backed checkout flow using `order.created` events
 * Gateway/Auth process with private clients for Order/Saga, Payment, and Inventory
-* Independently deployed Order/Saga, Payment, and Inventory services with private HTTP contracts
+* Separate Order/Saga, Payment, and Inventory processes with private HTTP contracts in the local Compose stack
 * PostgreSQL persistence for transactional state
 * Redis cache-aside reads
 * Payment idempotency for safe duplicate/retry handling
@@ -133,7 +135,7 @@ stateDiagram-v2
 
 ## Validation Coverage
 
-AtlasPay includes Docker-based workflows covering success and failure scenarios.
+AtlasPay includes Docker-based workflows covering success and failure scenarios. Recorded local evidence and reproducible commands demonstrate the tested environment, not production availability or universal throughput guarantees. See [current implementation and validation boundaries](docs/CURRENT_STATE.md) for the evidence scope.
 
 | Case | Covered behavior                           |
 | ---- | ------------------------------------------ |
@@ -535,7 +537,7 @@ AtlasPay/
 
 ---
 
-#Key Tradeoffs 
+## Key Tradeoffs
 
 * event-driven checkout systems
 * saga-style compensation
